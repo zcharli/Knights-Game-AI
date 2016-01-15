@@ -41,35 +41,35 @@ class GameBoard(wx.Frame):
         if self.board:
             print "Removing Board"
             self._remove_board();
-
-        else:
-            self.board = self._build_board_canvas(int(self.txtDimensions.GetValue()))
-            self.screen.Add(self.board)
+        self.board = self._build_board_canvas(int(self.txtDimensions.GetValue()))
+        self.screen.Add(self.board)
         self.Refresh()
 
     def _remove_board(self):
         self.board.Clear()
+        self.boardCanvas.ClearAll()
         self.screen.Hide(self.board)
         self.screen.Remove(self.board)
+        self.board = None
 
     def _build_board_canvas(self, dimension):
         box = wx.BoxSizer(wx.VERTICAL)
-        boardCanvas = FloatCanvas.FloatCanvas(self, size=(800,700),
+        board_canvas = FloatCanvas.FloatCanvas(self, size=(800, 700),
                                               ProjectionFun=None,
                                               Debug=0,
                                               BackgroundColor="Black",
                                               )
-        self.boardCanvas = boardCanvas
+        self.boardCanvas = board_canvas
         self.boardCanvas.Bind(wx.EVT_SIZE, self._on_size)
         w = 30
         dx = 32
         for i in range(dimension):
             for j in range(dimension):
                 landable_square = self.boardCanvas.AddRectangle((i * dx, j * dx), (w, w),
-                                                               FillColor="White", LineStyle=None)
+                                                                FillColor="White", LineStyle=None)
                 landable_square.indexes = (i, j)
 
-        box.Add(boardCanvas)
+        box.Add(board_canvas)
         return box
 
     def _on_size(self, event):
