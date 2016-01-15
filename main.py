@@ -43,9 +43,9 @@ class GameBoard(wx.Frame):
         self.screen.Add(self.board)
         self.screen.Layout()
 
-
     def _remove_board(self):
         self.board.Clear()
+        self.screen.Remove(self.board)
         self.board = None
 
     def _build_board_canvas(self, dimension):
@@ -65,6 +65,7 @@ class GameBoard(wx.Frame):
                                                                 FillColor="White", LineStyle=None)
                 landable_square.indexes = (i, j)
         box.Add(board_canvas)
+
         return box
 
     def _on_size(self, event):
