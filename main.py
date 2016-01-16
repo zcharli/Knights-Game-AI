@@ -14,6 +14,9 @@ DEFAULT_SIZE = 20
 NUMBER_OF_PAWNS = 4
 CELLWIDTH = 30
 
+GREEN = (0, 255, 0)
+WHITE = (255, 255, 255)
+
 
 class GameBoard(wx.Frame):
     def __init__(self, title):
@@ -25,7 +28,7 @@ class GameBoard(wx.Frame):
         # Generate game environment
         self._do_layout()
         self._register_handlers()
-        self._play()
+        self.generate_new_valid_moves()
 
     def _init_game_variables(self):
         self.boardGraph = {}
@@ -36,12 +39,6 @@ class GameBoard(wx.Frame):
         self.knight = None
         self.txtDimensions = None
         self.isPlaying = True
-
-    def _play(self):
-        # while self.isPlaying:
-        self.validKnightMoves = self.knight.get_valid_moves()
-        for coords in self.validKnightMoves:
-            self.color_square_green(self.boardCanvasSquares[coords])
 
     def _move_knight(self):
         print "Moved knight"
@@ -117,8 +114,8 @@ class GameBoard(wx.Frame):
         self.boardCanvas = board_canvas
         self.boardCanvas.Bind(wx.EVT_SIZE, self._on_size)
         dx = 32
-        KNIGHT_ICON = wx.Image('images/knight.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
-        PAWN_ICON = wx.Image('images/pawn.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        knight_icon = wx.Image('images/knight.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        pawn_icon = wx.Image('images/pawn.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
         for i in range(dimension):
             for j in range(dimension):
                 fill_color = "White"
@@ -129,13 +126,13 @@ class GameBoard(wx.Frame):
                 if i == 0 or i == dimension - 1 or j == 0 or j == dimension - 1:
                     fill_color = "Grey"
                 if current_position in self.pawns:
-                    square = self.boardCanvas.AddScaledBitmap(PAWN_ICON, (i * dx, j * dx),
+                    square = self.boardCanvas.AddScaledBitmap(pawn_icon, (i * dx, j * dx),
                                                               CELLWIDTH,
                                                               Position='bl')
                     pawn = self.pawns[current_position]
                     pawn.set_graph_coord(i * dx, j * dx)
                 elif i == self.knight.get_x_coord() and j == self.knight.get_y_coord():
-                    square = self.boardCanvas.AddScaledBitmap(KNIGHT_ICON, (i * dx, j * dx),
+                    square = self.boardCanvas.AddScaledBitmap(knight_icon, (i * dx, j * dx),
                                                               CELLWIDTH,
                                                               Position='bl')
                     self.knight.set_graph_coord(i * dx, j * dx)
@@ -145,10 +142,10 @@ class GameBoard(wx.Frame):
 
                 self.boardCanvasSquares[point] = square
                 square.indexes = point
-                square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.click_square)
+                square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
 
     def add_knight_to_position(self, square):
-        KNIGHT_ICON = wx.Image('images/knight.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        knight_icon = wx.Image('images/knight.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
         # Remove old squares: Knight and legal (green) move square
         self.boardCanvas.RemoveObject(square)
         # Save the previous knight position to create new white square
@@ -159,30 +156,40 @@ class GameBoard(wx.Frame):
         self.boardCanvas.RemoveObject(k_square)
 
         # Create a new knight square at the square where the move was made
-        knight_new_square = self.boardCanvas.AddScaledBitmap(KNIGHT_ICON, square.indexes.get_graph_coord(),
+        knight_new_square = self.boardCanvas.AddScaledBitmap(knight_icon, square.indexes.get_graph_coord(),
                                                              CELLWIDTH,
                                                              Position='bl')
         knight_new_square.indexes = square_prev_position
-        knight_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.click_square)
-        print knight_new_square.indexes
-        print self.boardCanvasSquares[knight_new_square.indexes]
+        knight_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
         self.boardCanvasSquares[knight_new_square.indexes] = knight_new_square
-        new_square_graph_coord = square_prev_position.get_graph_coord()
-        self.knight.set_position(new_square_graph_coord[0], new_square_graph_coord[1])
+        old_square_coord = square_prev_position.get_graph_coord()
+        self.knight.set_graph_coord(old_square_coord[0], old_square_coord[1])
+        self.knight.set_position(square_prev_position.x, square_prev_position.y)
 
         # Create a blank square ( can be green since we can always move back)
         k_prev_square = self.boardCanvas.AddRectangle(knight_prev_coord, (CELLWIDTH, CELLWIDTH),
                                                       FillColor="White", LineStyle=None)
         k_prev_square.indexes = knight_prev_position
-        k_prev_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.click_square)
+        k_prev_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
         self.boardCanvasSquares[k_prev_square.indexes] = k_prev_square
 
-    def click_square(self, square):
-        print "square hit:" + str(square.indexes)
+    def generate_new_valid_moves(self):
+        self.validKnightMoves = self.knight.get_valid_moves()
+        for coords in self.validKnightMoves:
+            self.color_square(self.boardCanvasSquares[coords], GREEN)
+
+    def clear_valid_moves(self):
+        for coords in self.validKnightMoves:
+            self.color_square(self.boardCanvasSquares[coords], WHITE)
+        self.validKnightMoves = {}
+
+    def make_move(self, square):
+        print "player made a move square hit:" + str(square.indexes)
         if square.indexes in self.validKnightMoves:
             print "yes"
             self.add_knight_to_position(square)
-
+            self.clear_valid_moves()
+            self.generate_new_valid_moves()
             if square.indexes in self.pawns:
                 print "caught a pawn"
             self.boardCanvas.Draw(Force=True)
@@ -197,8 +204,8 @@ class GameBoard(wx.Frame):
         self.boardCanvas.ZoomToBB()
         event.Skip()
 
-    def color_square_green(self, square):
-        square.SetFillColor((0, 255, 0))
+    def color_square(self, square, color):
+        square.SetFillColor(color)
         self.boardCanvas.Draw(True)
 
 
@@ -278,7 +285,6 @@ class Knight(Vertex):
 
     def get_graph_coord(self):
         return self.g_x, self.g_y
-
 
 
 class Pawn(Vertex):
