@@ -153,6 +153,7 @@ class GameBoard(wx.Frame):
         knight_prev_position = self.knight.get_position()
         square_prev_position = square.indexes
         k_square = self.boardCanvasSquares[knight_prev_position]
+        k_prev_indexes = k_square.indexes
         self.boardCanvas.RemoveObject(k_square)
 
         # Create a new knight square at the square where the move was made
@@ -162,31 +163,33 @@ class GameBoard(wx.Frame):
         knight_new_square.indexes = square_prev_position
         knight_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
         self.boardCanvasSquares[knight_new_square.indexes] = knight_new_square
-        old_square_coord = square_prev_position.get_graph_coord()
-        self.knight.set_graph_coord(old_square_coord[0], old_square_coord[1])
+        square_prev_coord = square_prev_position.get_graph_coord()
+        self.knight.set_graph_coord(square_prev_coord[0], square_prev_coord[1])
         self.knight.set_position(square_prev_position.x, square_prev_position.y)
 
         # Create a blank square ( can be green since we can always move back)
-        k_prev_square = self.boardCanvas.AddRectangle(knight_prev_coord, (CELLWIDTH, CELLWIDTH),
+        k_prev_square = self.boardCanvas.AddRectangle(k_prev_indexes.get_graph_coord(), (CELLWIDTH, CELLWIDTH),
                                                       FillColor="White", LineStyle=None)
-        k_prev_square.indexes = knight_prev_position
+        k_prev_square.indexes = k_prev_indexes
         k_prev_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
         self.boardCanvasSquares[k_prev_square.indexes] = k_prev_square
 
     def generate_new_valid_moves(self):
         self.validKnightMoves = self.knight.get_valid_moves()
         for coords in self.validKnightMoves:
-            self.color_square(self.boardCanvasSquares[coords], GREEN)
+            if coords in self.boardCanvasSquares:
+                self.color_square(self.boardCanvasSquares[coords], GREEN)
+        self.boardCanvas.Draw()
 
     def clear_valid_moves(self):
         for coords in self.validKnightMoves:
             self.color_square(self.boardCanvasSquares[coords], WHITE)
+        self.boardCanvas.Draw()
         self.validKnightMoves = {}
 
     def make_move(self, square):
         print "player made a move square hit:" + str(square.indexes)
         if square.indexes in self.validKnightMoves:
-            print "yes"
             self.add_knight_to_position(square)
             self.clear_valid_moves()
             self.generate_new_valid_moves()
@@ -204,9 +207,10 @@ class GameBoard(wx.Frame):
         self.boardCanvas.ZoomToBB()
         event.Skip()
 
-    def color_square(self, square, color):
+    def color_square(self, square, color, force=False):
         square.SetFillColor(color)
-        self.boardCanvas.Draw(True)
+        if force:
+            self.boardCanvas.Draw(True)
 
 
 class Knight(Vertex):
@@ -217,11 +221,10 @@ class Knight(Vertex):
     def get_valid_moves(self):
         valid_move_set = set()
 
-        max_x = max_y = self.dim - 1
+        max_x = max_y = self.dim - 2
         min_x = min_y = 1
         x = self.get_x_coord()
         y = self.get_y_coord()
-        print y
         if x - 2 >= min_x:
             # can go full left
             if y + 1 < max_y:
@@ -231,9 +234,9 @@ class Knight(Vertex):
         elif x - 1 >= min_x:
             # can only go partially left
             if y + 2 < max_y:
-                valid_move_set.add((x - 2, y + 1))
+                valid_move_set.add((x - 1, y + 2))
             if y - 2 > min_y:
-                valid_move_set.add((x - 2, y - 1))
+                valid_move_set.add((x - 1, y - 2))
         if x + 2 <= max_x:
             # can go full right
             if y + 1 < max_y:
@@ -243,9 +246,9 @@ class Knight(Vertex):
         elif x + 1 <= max_x:
             # can go partially right
             if y + 2 < max_y:
-                valid_move_set.add((x + 2, y + 1))
+                valid_move_set.add((x + 1, y + 2))
             if y - 2 > min_y:
-                valid_move_set.add((x + 2, y - 1))
+                valid_move_set.add((x + 1, y - 2))
         if y + 2 <= max_y:
             if x + 1 < max_x:
                 valid_move_set.add((x + 1, y + 2))
@@ -253,9 +256,9 @@ class Knight(Vertex):
                 valid_move_set.add((x - 1, y + 2))
         elif y + 1 <= max_y:
             if x - 2 > min_x:
-                valid_move_set.add((x - 2, y + 2))
+                valid_move_set.add((x - 2, y + 1))
             if x + 2 < max_x:
-                valid_move_set.add((x + 2, y + 2))
+                valid_move_set.add((x + 2, y + 1))
         if y - 2 >= min_y:
             if x + 1 < max_x:
                 valid_move_set.add((x + 1, y - 2))
@@ -264,9 +267,10 @@ class Knight(Vertex):
                 valid_move_set.add((x - 1, y - 2))
         elif y - 1 >= min_y:
             if x - 2 > min_x:
-                valid_move_set.add((x - 2, y - 2))
+                valid_move_set.add((x - 2, y - 1))
             if x + 2 < max_x:
-                valid_move_set.add((x + 2, y - 2))
+                valid_move_set.add((x + 2, y - 1))
+        print len(valid_move_set)
         return valid_move_set
 
     def get_x_coord(self):
@@ -282,6 +286,7 @@ class Knight(Vertex):
     def set_graph_coord(self, x, y):
         self.g_x = x
         self.g_y = y
+        self.point.set_graph_coord(x, y)
 
     def get_graph_coord(self):
         return self.g_x, self.g_y

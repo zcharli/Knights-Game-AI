@@ -18,7 +18,7 @@ class Point:
 
     def __str__(self):
         """Formats a string of this vertex to return"""
-        return "(%d,%d)" % (self.x, self.y)
+        return "Point (%d,%d)" % (self.x, self.y)
 
     def __eq__(self, other):
         """Two vertices are equal if they have the same x and y coord"""
@@ -41,6 +41,7 @@ class Vertex(object):
     def set_graph_coord(self, x, y):
         self.g_x = x
         self.g_y = y
+        self.point.set_graph_coord(x, y)
 
     def get_graph_coord(self):
         return self.g_x, self.g_y
