@@ -199,30 +199,48 @@ class GameBoard(wx.Frame):
     def move_pawns(self):
         pawn_icon = wx.Image('images/pawn.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
         pawn_to_delete = None
+        print self.pawns
         for pawn in self.pawns:
             (i, j) = self.pawns[pawn].get_position()
             current_square = self.boardCanvasSquares[(i, j)]
             if self.pawns[pawn].move(self.dim):
                 (i, j) = self.pawns[pawn].get_position()
-                next_square = self.boardCanvasSquares[(i, j)]
-                self.boardCanvas.RemoveObject(next_square)
-                self.boardCanvas.RemoveObject(current_square)
-                # If the next square is a knight
-                pawn_new_square = self.boardCanvas.AddScaledBitmap(pawn_icon, next_square.indexes.get_graph_coord(),
-                                                                   CELLWIDTH,
-                                                                   Position='bl')
-                new_square = self.boardCanvas.AddRectangle(current_square.indexes.get_graph_coord(),
-                                                           (CELLWIDTH, CELLWIDTH),
-                                                           FillColor="White", LineStyle=None)
-                pawn_new_square.indexes = next_square.indexes
-                new_square.indexes = current_square.indexes
-                new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
-                pawn_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
-                self.boardCanvasSquares[new_square.indexes] = new_square
-                self.boardCanvasSquares[pawn_new_square.indexes] = pawn_new_square
-                self.pawns[pawn].set_position(i, j)
-                graph_coords = next_square.indexes.get_graph_coord()
-                self.pawns[pawn].set_graph_coord(graph_coords[0], graph_coords[1])
+                print (i,j)
+                print self.knight.point
+                if (i, j) == self.knight.point:
+                    print "pawn walked into knight!"
+                    pawn_to_delete = pawn
+                    self.boardCanvas.RemoveObject(current_square)
+                    new_square = self.boardCanvas.AddRectangle(current_square.indexes.get_graph_coord(),
+                                                               (CELLWIDTH, CELLWIDTH),
+                                                               FillColor="White", LineStyle=None)
+                    new_square.indexes = current_square.indexes
+                    new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
+                    self.boardCanvasSquares[new_square.indexes] = new_square
+                else:
+                    next_square = self.boardCanvasSquares[(i, j)]
+                    self.boardCanvas.RemoveObject(next_square)
+                    self.boardCanvas.RemoveObject(current_square)
+                    # If the next square is a knight
+                    pawn_new_square = self.boardCanvas.AddScaledBitmap(pawn_icon, next_square.indexes.get_graph_coord(),
+                                                                       CELLWIDTH,
+                                                                       Position='bl')
+                    if current_square.indexes in self.validKnightMoves:
+                        fill_color = GREEN
+                    else:
+                        fill_color = "White"
+                    new_square = self.boardCanvas.AddRectangle(current_square.indexes.get_graph_coord(),
+                                                               (CELLWIDTH, CELLWIDTH),
+                                                               FillColor=fill_color, LineStyle=None)
+                    pawn_new_square.indexes = next_square.indexes
+                    new_square.indexes = current_square.indexes
+                    new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
+                    pawn_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
+                    self.boardCanvasSquares[new_square.indexes] = new_square
+                    self.boardCanvasSquares[pawn_new_square.indexes] = pawn_new_square
+                    self.pawns[pawn].set_position(i, j)
+                    graph_coords = next_square.indexes.get_graph_coord()
+                    self.pawns[pawn].set_graph_coord(graph_coords[0], graph_coords[1])
             else:
                 pawn_to_delete = pawn
                 self.boardCanvas.RemoveObject(current_square)
