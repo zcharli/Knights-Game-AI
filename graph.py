@@ -72,7 +72,11 @@ class Vertex(object):
 
     def __eq__(self, other):
         """Two vertices are equal if they have the same x and y coord"""
-        return self.point.x == other.point.x and self.point.y == other.point.y
+        if isinstance(other, Point):
+            return self.point.x == other.point.x and self.point.y == other.point.y
+        else:
+            # elif type(other) is tuple:
+            return self.x == other[0] and self.y == other[1]
 
 
 class GraphConstructor(object):

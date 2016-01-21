@@ -98,7 +98,7 @@ class GameBoard(wx.Frame):
                 y = random.randint(5, self.dim - 5)
                 d = random.randint(0, 3)
                 pawn = Pawn(x, y, d)
-                if pawn not in self.pawns and self.knight not in self.pawns and pawn not in self.validKnightMoves:
+                if pawn not in self.pawns and self.knight.get_position() not in self.pawns and pawn not in self.validKnightMoves:
                     self.pawns[pawn.get_position()] = pawn
                     break
 
@@ -204,17 +204,24 @@ class GameBoard(wx.Frame):
 
     def move_pawns(self):
         pawn_icon = wx.Image('images/pawn.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
-        pawn_to_delete = None
+        pawns_to_delete = []
+        pawns_that_moved_this_round = dict()
         for pawn in self.pawns:
 
             (i, j) = self.pawns[pawn].get_position()
             current_square = self.boardCanvasSquares[(i, j)]
+            next_move = self.pawns[pawn].get_next_move_position()
+            current_position = current_square.indexes
+            if next_move in pawns_that_moved_this_round:
+                continue
+            else:
+                pawns_that_moved_this_round[pawn] = next_move
+
             if self.pawns[pawn].move(self.dim):
                 (i, j) = self.pawns[pawn].get_position()
-                print "\nPawn walked to " + str(i) + " " + str(j) + "\n"
                 if (i, j) == self.knight.point:
                     print "pawn walked into knight!"
-                    pawn_to_delete = pawn
+                    pawns_to_delete.append(pawn)
                     self.boardCanvas.RemoveObject(current_square)
                     new_square = self.boardCanvas.AddRectangle(current_square.indexes.get_graph_coord(),
                                                                (CELLWIDTH, CELLWIDTH),
@@ -246,8 +253,9 @@ class GameBoard(wx.Frame):
                     self.pawns[pawn].set_position(i, j)
                     graph_coords = next_square.indexes.get_graph_coord()
                     self.pawns[pawn].set_graph_coord(graph_coords[0], graph_coords[1])
+
             else:
-                pawn_to_delete = pawn
+                pawns_to_delete.append(pawn)
                 self.boardCanvas.RemoveObject(current_square)
                 new_square = self.boardCanvas.AddRectangle(current_square.indexes.get_graph_coord(),
                                                            (CELLWIDTH, CELLWIDTH),
@@ -258,8 +266,21 @@ class GameBoard(wx.Frame):
 
                 print "a pawn has escaped!"
 
-        if pawn_to_delete:
-            del self.pawns[pawn_to_delete]
+        for pawn in pawns_to_delete:
+            print "deleted :"
+            print pawn
+            del self.pawns[pawn]
+            if pawn in pawns_that_moved_this_round:
+                del pawns_that_moved_this_round[pawn]
+
+        for old_pos_key in pawns_that_moved_this_round:
+            if self.pawns[old_pos_key] and self.pawns[old_pos_key] not in pawns_to_delete:
+                self.pawns[pawns_that_moved_this_round[old_pos_key]] = self.pawns[old_pos_key]
+                del self.pawns[old_pos_key]
+            else:
+                print "weird"
+        print pawns_to_delete
+
         self.boardCanvas.Draw()
 
     def is_valid_knight_move(self, point_tuple):
@@ -385,6 +406,17 @@ class Pawn(Vertex):
             return False
         else:
             return True
+
+    def get_next_move_position(self):
+        if self.direction is 1:
+            position = (self.point.x, self.point.y + 1)
+        elif self.direction is 2:
+            position = (self.point.x + 1, self.point.y)
+        elif self.direction is 3:
+            position = (self.point.x, self.point.y - 1)
+        else:
+            position = (self.point.x - 1, self.point.y)
+        return position
 
     def set_position(self, x, y):
         self.point.x = x
