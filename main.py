@@ -24,6 +24,7 @@ class GameBoard(wx.Frame):
         wx.Frame.__init__(self, None, title=title, pos=(150, 150), size=(800, 800))
         # Declare game variables
         self._init_game_variables()
+        self.txtDimensions = None
         # General game objects
         self._generate_starting_locations()
         # Generate game environment
@@ -38,7 +39,6 @@ class GameBoard(wx.Frame):
         self.boardCanvasSquares = dict()  # all the squares on the grid
         self.pawns = {}
         self.knight = None
-        self.txtDimensions = None
         self.isPlaying = True
         self.pawnsCaught = 0
 
@@ -46,8 +46,8 @@ class GameBoard(wx.Frame):
         sizer = wx.FlexGridSizer(cols=6, hgap=6, vgap=6)
         self.btnPlayGame = wx.Button(self, PLAYGAME, "Play Game")
         self.btnDFS = wx.Button(self, DFS, "Depth First Search")
-        self.btnBFS = wx.Button(self, DFS, "Breadth First Search")
-        self.btnAStar = wx.Button(self, DFS, "A* Search")
+        self.btnBFS = wx.Button(self, BFS, "Breadth First Search")
+        self.btnAStar = wx.Button(self, ASTAR, "A* Search")
         lbl_dimensions = wx.StaticText(self, -1, "Grid Dimensions")
         self.txtDimensions = wx.TextCtrl(self, -1, str(DEFAULT_SIZE), size=(125, -1))
         sizer.AddMany([self.btnPlayGame, lbl_dimensions, self.txtDimensions,
@@ -74,6 +74,7 @@ class GameBoard(wx.Frame):
         self.screen.Layout()
 
     def _restart_game(self, event):
+        self.dim = int(self.txtDimensions.GetValue())
         self._init_game_variables()
         self._generate_starting_locations()
         self._build_board()
@@ -187,26 +188,30 @@ class GameBoard(wx.Frame):
         # print "player made a move square hit:" + str(square.indexes)
         if square.indexes in self.validKnightMoves:
             self.add_knight_to_position(square)
-            self.clear_valid_moves()
-            self.generate_new_valid_moves()
+            print square.indexes
+            lol = "on all:"
+            for i in self.pawns:
+                print i
+            print ""
             if square.indexes in self.pawns:
                 print "caught a pawn"
                 self.pawnsCaught += 1
                 del self.pawns[square.indexes]
             self.move_pawns()
+            self.clear_valid_moves()
+            self.generate_new_valid_moves()
             self.boardCanvas.Draw(Force=True)
 
     def move_pawns(self):
         pawn_icon = wx.Image('images/pawn.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
         pawn_to_delete = None
-        print self.pawns
         for pawn in self.pawns:
+
             (i, j) = self.pawns[pawn].get_position()
             current_square = self.boardCanvasSquares[(i, j)]
             if self.pawns[pawn].move(self.dim):
                 (i, j) = self.pawns[pawn].get_position()
-                print (i,j)
-                print self.knight.point
+                print "\nPawn walked to " + str(i) + " " + str(j) + "\n"
                 if (i, j) == self.knight.point:
                     print "pawn walked into knight!"
                     pawn_to_delete = pawn
@@ -330,7 +335,6 @@ class Knight(Vertex):
                 valid_move_set.add((x - 2, y - 1))
             if x + 2 < max_x:
                 valid_move_set.add((x + 2, y - 1))
-        print len(valid_move_set)
         return valid_move_set
 
     def get_x_coord(self):
@@ -364,15 +368,19 @@ class Pawn(Vertex):
         if self.direction is 1:
             self.point.y += 1
             self.g_y += CELLSPACING
+            self.point.set_graph_coord(self.point.g_x, self.g_y)
         elif self.direction is 2:
             self.point.x += 1
             self.g_x += CELLSPACING
+            self.point.set_graph_coord(self.g_x, self.point.g_y)
         elif self.direction is 3:
             self.point.y -= 1
             self.g_x -= CELLSPACING
+            self.point.set_graph_coord(self.point.g_x, self.g_y)
         else:
             self.point.x -= 1
             self.g_x -= CELLSPACING
+            self.point.set_graph_coord(self.g_x, self.point.g_y)
         if self.point.x < 0 or self.point.y < 0 or self.point.y >= max or self.point.x >= max:
             return False
         else:
