@@ -94,10 +94,9 @@ class GameBoard(wx.Frame):
         # Generate random pawn location
         for i in range(NUMBER_OF_PAWNS):
             while True:
-                x = random.randint(5, self.dim - 5)
-                y = random.randint(5, self.dim - 5)
-                d = random.randint(0, 3)
-                pawn = Pawn(x, y, d)
+                x = random.randint(2, self.dim - 2)
+                y = random.randint(2, self.dim - 2)
+                pawn = Pawn(x, y, self.dim)
                 if pawn not in self.pawns and self.knight.get_position() not in self.pawns and pawn not in self.validKnightMoves:
                     self.pawns[pawn.get_position()] = pawn
                     break
@@ -164,7 +163,7 @@ class GameBoard(wx.Frame):
         self.boardCanvas.RemoveObject(k_square)
 
         (t, v) = square.indexes.get_graph_coord()
-        square = self.boardCanvas.AddRectangle((t,v), (CELLWIDTH, CELLWIDTH),
+        square = self.boardCanvas.AddRectangle((t, v), (CELLWIDTH, CELLWIDTH),
                                                FillColor="White", LineStyle=None)
 
         knight_new_square = self.boardCanvas.AddScaledText(u"\u265E", (t + 15, v + 13),
@@ -205,18 +204,13 @@ class GameBoard(wx.Frame):
         # print "player made a move square hit:" + str(square.indexes)
         if square.indexes in self.validKnightMoves:
             self.add_knight_to_position(square)
-            print square.indexes
-            lol = "on all:"
-            for i in self.pawns:
-                print i
-            print ""
             if square.indexes in self.pawns:
                 print "caught a pawn"
                 self.pawnsCaught += 1
                 del self.pawns[square.indexes]
-            self.move_pawns()
             self.clear_valid_moves()
             self.generate_new_valid_moves()
+            self.move_pawns()
             self.boardCanvas.Draw(Force=True)
 
     def move_pawns(self):
@@ -251,9 +245,15 @@ class GameBoard(wx.Frame):
                     self.boardCanvas.RemoveObject(next_square)
                     self.boardCanvas.RemoveObject(current_square)
                     # If the next square is a knight
+                    if next_square.indexes in self.validKnightMoves:
+                        fill_color = GREEN
+                    elif self.check_location_is_edges(next_square.indexes):
+                        fill_color = "Grey"
+                    else:
+                        fill_color = WHITE
                     square = self.boardCanvas.AddRectangle(next_square.indexes.get_graph_coord(),
                                                            (CELLWIDTH, CELLWIDTH),
-                                                           FillColor="white", LineStyle=None)
+                                                           FillColor=fill_color, LineStyle=None)
                     (t, v) = next_square.indexes.get_graph_coord()
                     pawn_new_square = self.boardCanvas.AddScaledText(u"\u265F", (t + 15, v + 15), CELLWIDTH + 5,
                                                                      Color="Black", Position="cc")
@@ -291,7 +291,6 @@ class GameBoard(wx.Frame):
 
         for pawn in pawns_to_delete:
             print "deleted :"
-            print pawn
             del self.pawns[pawn]
             if pawn in pawns_that_moved_this_round:
                 del pawns_that_moved_this_round[pawn]
@@ -302,8 +301,6 @@ class GameBoard(wx.Frame):
                 del self.pawns[old_pos_key]
             else:
                 print "weird"
-        print pawns_to_delete
-
         self.boardCanvas.Draw()
 
     def is_valid_knight_move(self, point_tuple):
@@ -320,6 +317,13 @@ class GameBoard(wx.Frame):
         square.SetFillColor(color)
         if force:
             self.boardCanvas.Draw(True)
+
+    def check_location_is_edges(self, point):
+        if point.x is 0 or point.x is self.dim-1:
+            return True
+        if point.y is 0 or point.y is self.dim-1:
+            return True
+        return False
 
 
 class Knight(Vertex):
@@ -401,9 +405,25 @@ class Knight(Vertex):
 
 
 class Pawn(Vertex):
-    def __init__(self, x, y, d):
+    def __init__(self, x, y, dim):
         super(Pawn, self).__init__(x, y)
-        self.direction = d
+        if x > dim - x:
+            # go left.
+            self.direction = 4
+            x_len = x
+        else:
+            # go right
+            self.direction = 2
+            x_len = dim - x
+        if y > dim - y:
+            # go down
+            if y > x_len:
+                self.direction = 3
+        else:
+            # go right
+            if dim - y > x_len:
+                self.direction = 1
+
 
     def get_location(self):
         return self.point
