@@ -123,15 +123,25 @@ class GameBoard(wx.Frame):
                 if i == 0 or i == dimension - 1 or j == 0 or j == dimension - 1:
                     fill_color = "Grey"
                 if current_position in self.pawns:
-                    square = self.boardCanvas.AddScaledBitmap(pawn_icon, (i * CELLSPACING, j * CELLSPACING),
-                                                              CELLWIDTH,
-                                                              Position='bl')
+                    square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
+                                                           FillColor=fill_color, LineStyle=None)
+                    square = self.boardCanvas.AddScaledText(u"\u265F", (i * CELLSPACING + 15, j * CELLSPACING + 15),
+                                                            CELLWIDTH + 5,
+                                                            Color="Black", Position="cc")
+                    # square = self.boardCanvas.AddScaledBitmap(pawn_icon, (i * CELLSPACING, j * CELLSPACING),
+                    #                                           CELLWIDTH,
+                    #                                           Position='bl')
                     pawn = self.pawns[current_position]
                     pawn.set_graph_coord(i * CELLSPACING, j * CELLSPACING)
                 elif i == self.knight.get_x_coord() and j == self.knight.get_y_coord():
-                    square = self.boardCanvas.AddScaledBitmap(knight_icon, (i * CELLSPACING, j * CELLSPACING),
-                                                              CELLWIDTH,
-                                                              Position='bl')
+                    square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
+                                                           FillColor=fill_color, LineStyle=None)
+                    square = self.boardCanvas.AddScaledText(u"\u265E", (i * CELLSPACING + 15, j * CELLSPACING + 13),
+                                                            CELLWIDTH + 5,
+                                                            Color="Black", Position="cc")
+                    # square = self.boardCanvas.AddScaledBitmap(knight_icon, (i * CELLSPACING, j * CELLSPACING),
+                    #                                           CELLWIDTH,
+                    #                                           Position='bl')
                     self.knight.set_graph_coord(i * CELLSPACING, j * CELLSPACING)
                 else:
                     square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
@@ -153,10 +163,17 @@ class GameBoard(wx.Frame):
         k_prev_indexes = k_square.indexes
         self.boardCanvas.RemoveObject(k_square)
 
+        (t, v) = square.indexes.get_graph_coord()
+        square = self.boardCanvas.AddRectangle((t,v), (CELLWIDTH, CELLWIDTH),
+                                               FillColor="White", LineStyle=None)
+
+        knight_new_square = self.boardCanvas.AddScaledText(u"\u265E", (t + 15, v + 13),
+                                                           CELLWIDTH + 5,
+                                                           Color="Black", Position="cc")
         # Create a new knight square at the square where the move was made
-        knight_new_square = self.boardCanvas.AddScaledBitmap(knight_icon, square.indexes.get_graph_coord(),
-                                                             CELLWIDTH,
-                                                             Position='bl')
+        # knight_new_square = self.boardCanvas.AddScaledBitmap(knight_icon, square.indexes.get_graph_coord(),
+        #                                                      CELLWIDTH,
+        #                                                      Position='bl')
         knight_new_square.indexes = square_prev_position
         knight_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
         self.boardCanvasSquares[knight_new_square.indexes] = knight_new_square
@@ -234,9 +251,15 @@ class GameBoard(wx.Frame):
                     self.boardCanvas.RemoveObject(next_square)
                     self.boardCanvas.RemoveObject(current_square)
                     # If the next square is a knight
-                    pawn_new_square = self.boardCanvas.AddScaledBitmap(pawn_icon, next_square.indexes.get_graph_coord(),
-                                                                       CELLWIDTH,
-                                                                       Position='bl')
+                    square = self.boardCanvas.AddRectangle(next_square.indexes.get_graph_coord(),
+                                                           (CELLWIDTH, CELLWIDTH),
+                                                           FillColor="white", LineStyle=None)
+                    (t, v) = next_square.indexes.get_graph_coord()
+                    pawn_new_square = self.boardCanvas.AddScaledText(u"\u265F", (t + 15, v + 15), CELLWIDTH + 5,
+                                                                     Color="Black", Position="cc")
+                    # pawn_new_square = self.boardCanvas.AddScaledBitmap(pawn_icon, next_square.indexes.get_graph_coord(),
+                    #                                                    CELLWIDTH,
+                    #                                                    Position='bl')
                     if current_square.indexes in self.validKnightMoves:
                         fill_color = GREEN
                     else:
