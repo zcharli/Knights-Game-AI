@@ -1,8 +1,11 @@
 import wx
 
+import pawn as pawn_model
+import queue
 import random
-from wx.lib.floatcanvas import NavCanvas, FloatCanvas
+from wx.lib.floatcanvas import FloatCanvas
 from graph import Point, Vertex, GraphConstructor
+from knight import Knight
 
 PLAYGAME = wx.NewId()
 DFS = wx.NewId()
@@ -10,11 +13,11 @@ BFS = wx.NewId()
 ASTAR = wx.NewId()
 KNIGHTSBOARD = wx.NewId()
 
-DEFAULT_SIZE = 20
+DEFAULT_SIZE = 15
 NUMBER_OF_PAWNS = 4
 CELLWIDTH = 30
 CELLSPACING = 32
-
+SPAWNPADDING = 5
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
 
@@ -65,6 +68,78 @@ class GameBoard(wx.Frame):
 
     def _register_handlers(self):
         wx.EVT_BUTTON(self, PLAYGAME, self._restart_game)
+        wx.EVT_BUTTON(self, BFS, self._start_bfs)
+        wx.EVT_BUTTON(self, DFS, self._start_dfs)
+        wx.EVT_BUTTON(self, ASTAR, self._start_astar)
+
+    def _start_bfs(self, event):
+        print "Starting BFS Search"
+        num_moves_ascending = self.get_sorted_number_of_moves_left()
+        max_search_depth = num_moves_ascending[len(num_moves_ascending) - 1]
+        current_depth = 0
+        elements_to_depth_increase = 1
+        next_elements_to_depth_increase = 0
+
+        current_pawns = dict()
+        for i in self.pawns:
+            current_pawns[self.pawns[i]] = self.pawns[i]
+
+        goals = dict()
+        k_cur_position = self.knight.get_position()
+
+        q = queue.Queue()
+        q.insert([k_cur_position])
+        # Emulate
+        while not q.is_empty():
+            cur_path = q.remove()
+            (x, y) = cur_path[len(cur_path) - 1]
+            cur_valid_moves = self.knight.get_valid_moves(x, y)
+            pawn_states = self.get_pawn_states(current_depth, current_pawns)
+            pawn_caught = False
+            if (x, y) in pawn_states:
+                pawn_caught = True
+                pawn = pawn_states[(x, y)]
+                del current_pawns[pawn]
+                pawns_caught_on_this_path = cur_path[0]
+                if type(pawns_caught_on_this_path) is tuple:
+                    # first pawn caught
+                    cur_path.insert(0, "*")
+
+                else:
+                    cur_stars = cur_path[0]
+                    cur_path[0] = cur_stars + "*"
+                print "BFS caught a pawn on path " + " ".join(str(e) for e in cur_path)
+
+            next_elements_to_depth_increase += len(cur_valid_moves)
+            elements_to_depth_increase -= 1
+            if elements_to_depth_increase == 0:
+                current_depth += 1
+                print current_depth
+                if current_depth > max_search_depth:
+                    print "max depth"
+                    return
+                elements_to_depth_increase = next_elements_to_depth_increase
+                next_elements_to_depth_increase = 0
+
+            for i in cur_valid_moves:
+
+                if pawn_caught:
+                    num_stars = cur_path[0].count("*")
+                    if num_stars not in goals:
+                        goals[num_stars] = [cur_path]
+                    else:
+                        goals[num_stars].append(cur_path)
+                    print goals
+                new_path = list(cur_path)
+                new_path.append(i)
+                q.insert(new_path)
+        print goals
+
+    def _start_dfs(self, event):
+        print "Starting DFS Search"
+
+    def _start_astar(self, event):
+        print "Starting A Star"
 
     def _build_board(self):
         if self.boardCanvas:
@@ -94,9 +169,9 @@ class GameBoard(wx.Frame):
         # Generate random pawn location
         for i in range(NUMBER_OF_PAWNS):
             while True:
-                x = random.randint(2, self.dim - 2)
-                y = random.randint(2, self.dim - 2)
-                pawn = Pawn(x, y, self.dim)
+                x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+                y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+                pawn = pawn_model.Pawn(x, y, self.dim)
                 if pawn not in self.pawns and self.knight.get_position() not in self.pawns and pawn not in self.validKnightMoves:
                     self.pawns[pawn.get_position()] = pawn
                     break
@@ -135,7 +210,7 @@ class GameBoard(wx.Frame):
                 elif i == self.knight.get_x_coord() and j == self.knight.get_y_coord():
                     square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
                                                            FillColor=fill_color, LineStyle=None)
-                    square = self.boardCanvas.AddScaledText(u"\u265E", (i * CELLSPACING + 15, j * CELLSPACING + 13),
+                    square = self.boardCanvas.AddScaledText(u"\u265E", (i * CELLSPACING + 15, j * CELLSPACING + 14),
                                                             CELLWIDTH + 5,
                                                             Color="Black", Position="cc")
                     # square = self.boardCanvas.AddScaledBitmap(knight_icon, (i * CELLSPACING, j * CELLSPACING),
@@ -166,7 +241,7 @@ class GameBoard(wx.Frame):
         square = self.boardCanvas.AddRectangle((t, v), (CELLWIDTH, CELLWIDTH),
                                                FillColor="White", LineStyle=None)
 
-        knight_new_square = self.boardCanvas.AddScaledText(u"\u265E", (t + 15, v + 13),
+        knight_new_square = self.boardCanvas.AddScaledText(u"\u265E", (t + 15, v + 14),
                                                            CELLWIDTH + 5,
                                                            Color="Black", Position="cc")
         # Create a new knight square at the square where the move was made
@@ -319,177 +394,32 @@ class GameBoard(wx.Frame):
             self.boardCanvas.Draw(True)
 
     def check_location_is_edges(self, point):
-        if point.x is 0 or point.x is self.dim-1:
+        if point.x is 0 or point.x is self.dim - 1:
             return True
-        if point.y is 0 or point.y is self.dim-1:
+        if point.y is 0 or point.y is self.dim - 1:
             return True
         return False
 
+    def get_sorted_number_of_moves_left(self):
+        list_pawns = []
+        for i in self.pawns:
+            list_pawns.append(self.pawns[i])
+        sorted_list = sorted(list_pawns, key=lambda x: x.steps_to_take, reverse=False)
+        sorted_coord = []
+        for i in sorted_list:
+            sorted_coord.append(i.get_position())
+        return sorted_coord
 
-class Knight(Vertex):
-    def __init__(self, x, y, dim):
-        super(Knight, self).__init__(x, y)
-        self.dim = dim
+    def get_pawn_states(self, steps, pawns):
+        pawn_states = dict()
+        for i in pawns:
+            pawn_states[pawns[i].get_position_in_steps(steps)] = i
+            #(c, n) = pawns[i].get_position_in_steps(steps)
 
-    def get_valid_moves(self):
-        valid_move_set = set()
-
-        max_x = max_y = self.dim - 2
-        min_x = min_y = 1
-        x = self.get_x_coord()
-        y = self.get_y_coord()
-        if x - 2 >= min_x:
-            # can go full left
-            if y + 1 < max_y:
-                valid_move_set.add((x - 2, y + 1))
-            if y - 1 > min_y:
-                valid_move_set.add((x - 2, y - 1))
-        elif x - 1 >= min_x:
-            # can only go partially left
-            if y + 2 < max_y:
-                valid_move_set.add((x - 1, y + 2))
-            if y - 2 > min_y:
-                valid_move_set.add((x - 1, y - 2))
-        if x + 2 <= max_x:
-            # can go full right
-            if y + 1 < max_y:
-                valid_move_set.add((x + 2, y + 1))
-            if y - 1 > min_y:
-                valid_move_set.add((x + 2, y - 1))
-        elif x + 1 <= max_x:
-            # can go partially right
-            if y + 2 < max_y:
-                valid_move_set.add((x + 1, y + 2))
-            if y - 2 > min_y:
-                valid_move_set.add((x + 1, y - 2))
-        if y + 2 <= max_y:
-            if x + 1 < max_x:
-                valid_move_set.add((x + 1, y + 2))
-            if x - 1 > min_x:
-                valid_move_set.add((x - 1, y + 2))
-        elif y + 1 <= max_y:
-            if x - 2 > min_x:
-                valid_move_set.add((x - 2, y + 1))
-            if x + 2 < max_x:
-                valid_move_set.add((x + 2, y + 1))
-        if y - 2 >= min_y:
-            if x + 1 < max_x:
-                valid_move_set.add((x + 1, y - 2))
-
-            if x - 1 > min_x:
-                valid_move_set.add((x - 1, y - 2))
-        elif y - 1 >= min_y:
-            if x - 2 > min_x:
-                valid_move_set.add((x - 2, y - 1))
-            if x + 2 < max_x:
-                valid_move_set.add((x + 2, y - 1))
-        return valid_move_set
-
-    def get_x_coord(self):
-        return self.point.x
-
-    def get_y_coord(self):
-        return self.point.y
-
-    def set_position(self, x, y):
-        self.point.x = x
-        self.point.y = y
-
-    def set_graph_coord(self, x, y):
-        self.g_x = x
-        self.g_y = y
-        self.point.set_graph_coord(x, y)
-
-    def get_graph_coord(self):
-        return self.g_x, self.g_y
-
-
-class Pawn(Vertex):
-    def __init__(self, x, y, dim):
-        super(Pawn, self).__init__(x, y)
-        if x > dim - x:
-            # go left.
-            self.direction = 4
-            x_len = x
-        else:
-            # go right
-            self.direction = 2
-            x_len = dim - x
-        if y > dim - y:
-            # go down
-            if y > x_len:
-                self.direction = 3
-        else:
-            # go right
-            if dim - y > x_len:
-                self.direction = 1
-
-
-    def get_location(self):
-        return self.point
-
-    def move(self, max):
-        if self.direction is 1:
-            self.point.y += 1
-            self.g_y += CELLSPACING
-            self.point.set_graph_coord(self.point.g_x, self.g_y)
-        elif self.direction is 2:
-            self.point.x += 1
-            self.g_x += CELLSPACING
-            self.point.set_graph_coord(self.g_x, self.point.g_y)
-        elif self.direction is 3:
-            self.point.y -= 1
-            self.g_x -= CELLSPACING
-            self.point.set_graph_coord(self.point.g_x, self.g_y)
-        else:
-            self.point.x -= 1
-            self.g_x -= CELLSPACING
-            self.point.set_graph_coord(self.g_x, self.point.g_y)
-        if self.point.x < 0 or self.point.y < 0 or self.point.y >= max or self.point.x >= max:
-            return False
-        else:
-            return True
-
-    def get_next_move_position(self):
-        if self.direction is 1:
-            position = (self.point.x, self.point.y + 1)
-        elif self.direction is 2:
-            position = (self.point.x + 1, self.point.y)
-        elif self.direction is 3:
-            position = (self.point.x, self.point.y - 1)
-        else:
-            position = (self.point.x - 1, self.point.y)
-        return position
-
-    def set_position(self, x, y):
-        self.point.x = x
-        self.point.y = y
-
-    def set_graph_coord(self, x, y):
-        self.g_x = x
-        self.g_y = y
-        self.point.set_graph_coord(x, y)
-
-    def get_graph_coord(self):
-        return self.g_x, self.g_y
-
-    def __hash__(self):
-        """Two vertices are the same if they have the same x and y coord"""
-        return hash((self.point.x, self.point.y))
-
-    def __str__(self):
-        """Formats a string of this vertex to return"""
-        return "Pawn at (%d,%d)" % (self.point.x, self.point.y)
-
-    def __eq__(self, other):
-        """Two vertices are equal if they have the same x and y coord"""
-        if isinstance(other, Pawn):
-            return self.point.x == other.point.x and self.point.y == other.point.y
-        elif isinstance(other, Point):
-            return self.point.x == other.x and self.point.y == other.y
-        else:
-            # elif type(other) is tuple:
-            return self.point.x == other[0] and self.point.y == other[1]
+            # pawn_states[c] = i
+            # if n not in pawn_states:
+            #     pawn_states[n] = i
+        return pawn_states
 
 
 class App(wx.App):
