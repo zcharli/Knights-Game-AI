@@ -74,7 +74,7 @@ class GameBoard(wx.Frame):
 
     def _start_bfs(self, event):
         num_moves_ascending = self.get_sorted_number_of_moves_left()
-        cur_farthest_pawn = num_moves_ascending[len(num_moves_ascending) - 1]
+        cur_farthest_pawn = num_moves_ascending.pop()
         max_search_depth = self.pawns[num_moves_ascending[len(num_moves_ascending) - 1]].steps_to_take
         print "Starting BFS Search with max steps as " + str(max_search_depth)
         num_pawns_caught = 0
@@ -93,61 +93,54 @@ class GameBoard(wx.Frame):
         q = queue.Queue()
         q.insert([k_cur_position])
         # Emulate
-        r = random
+        delete_pawns = set()
         while not q.is_empty():
-            cur_path = q.remove()
-            try:
 
-                (x, y) = cur_path[len(cur_path) - 1]
-            except:
-                print "Something bad happened"
-                print cur_path
+            cur_path = q.remove()
+
+            (x, y) = cur_path[len(cur_path) - 1]
+
             cur_valid_moves = self.knight.get_valid_moves(x, y)
             pawn_caught = False
 
             # check if i can make a move now and eat someone or else i will move the pawns
-            set_of_caught = cur_valid_moves.intersection(pawn_states)
-            for i in set_of_caught:
-                if i in pawn_states:
-                    pawn_caught = True
-                    pawn = pawn_states[i]
-                    if cur_farthest_pawn is i:
-                        num_moves_ascending.pop()
-                        cur_farthest_pawn = num_moves_ascending.pop()
-                        max_search_depth = self.pawns[cur_farthest_pawn].steps_to_take
-                        print "caught farthest pawn when knight moved on it, reducing max steps to " + \
-                              str(max_search_depth)
-                    del current_pawns[pawn]
-                    del pawn_states[i]
-                    pawns_caught_on_this_path = cur_path[0]
-                    if type(pawns_caught_on_this_path) is tuple:
-                        # first pawn caught
-                        cur_path.insert(0, "*")
-                    else:
-                        cur_stars = cur_path[0]
-                        cur_path[0] = cur_stars + "*"
-                    print "BFS caught a pawn on path while moving on it" + " ".join(str(e) for e in cur_path)
-                    num_pawns_caught += 1
+            # set_of_caught = cur_valid_moves.intersection(pawn_states)
+            # for i in set_of_caught:
+            #     if i in pawn_states:
+            #         pawn_caught = True
+            #         pawn = pawn_states[i]
+            #         if cur_farthest_pawn.get_position_in_steps(current_depth)[0] is i:
+            #             cur_farthest_pawn = num_moves_ascending.pop()
+            #             max_search_depth = self.pawns[cur_farthest_pawn].steps_to_take
+            #             print "caught farthest pawn, reducing max steps to " + str(max_search_depth)
+            #         for j in pawn:
+            #             delete_pawns.add(j)
+            #         pawns_caught_on_this_path = cur_path[0]
+            #         if type(pawns_caught_on_this_path) is tuple:
+            #             # first pawn caught
+            #             cur_path.insert(0, "*")
+            #         else:
+            #             cur_stars = cur_path[0]
+            #             cur_path[0] = cur_stars + "*"
+            #         print "BFS caught a pawn on path while moving on it" + " ".join(str(e) for e in cur_path)
+            #         num_pawns_caught += 1
 
             # now pawn moves
-            pawn_states = self.get_pawn_states(current_depth+1, current_pawns)
+            pawn_states = self.get_pawn_states(current_depth, current_pawns)
 
             if (x, y) in pawn_states:
                 pawn_caught = True
                 pawn = pawn_states[(x, y)]
-                if cur_farthest_pawn is (x, y):
-                    num_moves_ascending.pop()
+                if cur_farthest_pawn.get_position_in_steps(current_depth)[0] is (x, y):
                     cur_farthest_pawn = num_moves_ascending.pop()
                     max_search_depth = self.pawns[cur_farthest_pawn].steps_to_take
                     print "caught farthest pawn, reducing max steps to " + str(max_search_depth)
-
-                del current_pawns[pawn]
-                del pawn_states[(x, y)]
+                for i in pawn:
+                    delete_pawns.add(current_pawns[i])
                 pawns_caught_on_this_path = cur_path[0]
                 if type(pawns_caught_on_this_path) is tuple:
                     # first pawn caught
                     cur_path.insert(0, "*")
-
                 else:
                     cur_stars = cur_path[0]
                     cur_path[0] = cur_stars + "*"
@@ -159,6 +152,9 @@ class GameBoard(wx.Frame):
             if elements_to_depth_increase == 0:
                 current_depth += 1
                 print current_depth
+                for i in delete_pawns:
+                    del current_pawns[i]
+                delete_pawns = set()
                 if current_depth >= max_search_depth:
                     print "max depth"
                     print goals
@@ -206,7 +202,7 @@ class GameBoard(wx.Frame):
         print "Generating board for dimension " + str(self.dim)
         # Generate location of knight
         self.knight = Knight(5, 5, self.dim)
-        self.pawns[(8, 3)] = pawn_model.Pawn(7, 3, self.dim)
+        self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim)
         self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim)
         self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim)
         self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim)
@@ -243,7 +239,6 @@ class GameBoard(wx.Frame):
                 current_position = (i, j)
                 point = Point(i, j)
                 point.set_graph_coord(i * CELLSPACING, j * CELLSPACING)
-
                 if i == 0 or i == dimension - 1 or j == 0 or j == dimension - 1:
                     fill_color = "Grey"
                 if current_position in self.pawns:
@@ -268,8 +263,13 @@ class GameBoard(wx.Frame):
                     #                                           Position='bl')
                     self.knight.set_graph_coord(i * CELLSPACING, j * CELLSPACING)
                 else:
+
                     square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
                                                            FillColor=fill_color, LineStyle=None)
+                loc = "("+str(i)+","+str(j)+")"
+                square = self.boardCanvas.AddScaledText(loc, ((i * CELLSPACING) + 10, j * CELLSPACING + 14),
+                                                        5,
+                                                        Color="Black", Position="cc")
 
                 self.boardCanvasSquares[point] = square
                 square.indexes = point
@@ -454,21 +454,20 @@ class GameBoard(wx.Frame):
         list_pawns = []
         for i in self.pawns:
             list_pawns.append(self.pawns[i])
-        sorted_list = sorted(list_pawns, key=lambda x: x.steps_to_take, reverse=False)
-        sorted_coord = []
-        for i in sorted_list:
-            sorted_coord.append(i.get_position())
-        return sorted_coord
+        return sorted(list_pawns, key=lambda x: x.steps_to_take, reverse=False)
 
     def get_pawn_states(self, steps, pawns):
         pawn_states = dict()
         for i in pawns:
-            pawn_states[pawns[i].get_position_in_steps(steps)] = i
-            # (c, n) = pawns[i].get_position_in_steps(steps)
+            #pawn_states[pawns[i].get_position_in_steps(steps)] = i
+            #(c, n) = pawns[i].get_position_in_steps(steps)
+            c = pawns[i].get_position_in_steps(steps)
 
-            # pawn_states[c] = i
-            # if n not in pawn_states:
-            #     pawn_states[n] = i
+            #pawn_states[c] = [i]
+            if c not in pawn_states:
+                pawn_states[c] = [i]
+            else:
+                pawn_states[c].append(i)
         return pawn_states
 
 

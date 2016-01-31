@@ -48,7 +48,7 @@ class Pawn(Vertex):
         else:
             x = self.point.x - steps
             nx = x - 1
-        return (x, y)
+        return (x, y) #, (nx, ny)
 
     def move(self, max):
         self.steps_to_take -= 1
