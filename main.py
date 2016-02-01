@@ -131,9 +131,10 @@ class GameBoard(wx.Frame):
                         cur_path[0][current_pawns[j]] = "caught: %s, %s at depth %s" % (x, y, current_depth)
                 else:
                     for j in pawn:
-                        if x == 6 and y==2 and current_pawns[j] == self.pawns[(4,2)]:
-                            print "freeze"
+
                         cur_path[0][current_pawns[j]] = "caught: %s, %s at depth %s" % (x, y, current_depth)
+                        if (x,y) not in cur_path:
+                            print "freeze"
                 remove_collisions = False
                 for i in cur_path[0].keys():
                     last = int(cur_path[0][i][-1:])
