@@ -3,30 +3,42 @@ from main import CELLSPACING
 
 
 class Pawn(Vertex):
-    def __init__(self, x, y, dim):
+    def __init__(self, x, y, dim, d=None):
         super(Pawn, self).__init__(x, y)
         self.steps_to_take = 0
-
-        if x > dim - x:
-            # go left.
-            self.direction = 4
-            x_len = x
-            self.steps_to_take = x_len
-        else:
-            # go right
-            self.direction = 2
-            x_len = dim - x
-            self.steps_to_take = x_len
-        if y > dim - y:
-            # go down
-            if y > x_len:
-                self.direction = 3
-                self.steps_to_take = y
-        else:
-            # go right
-            if dim - y > x_len:
-                self.direction = 1
+        self.dim = dim
+        if d is not None:
+            self.direction = d
+            if d is 1:
+                # go left.
                 self.steps_to_take = dim - y
+            elif d is 2:
+                self.steps_to_take = dim - x
+            elif d is 3:
+                self.steps_to_take = y
+            else:
+                self.steps_to_take = x
+        else:
+            if x > dim - x:
+                # go left.
+                self.direction = 4
+                x_len = x
+                self.steps_to_take = x_len
+            else:
+                # go right
+                self.direction = 2
+                x_len = dim - x
+                self.steps_to_take = x_len
+            if y > dim - y:
+                # go down
+                if y > x_len:
+                    self.direction = 3
+                    self.steps_to_take = y
+            else:
+                # go right
+                if dim - y > x_len:
+                    self.direction = 1
+                    self.steps_to_take = dim - y
 
     def get_location(self):
         return self.point
@@ -34,21 +46,47 @@ class Pawn(Vertex):
     def get_position_in_steps(self, steps):
         x = self.point.x
         y = self.point.y
+        c = 0
+        n = 0
         nx = x
         ny = y
         if self.direction is 1:
             y = self.point.y + steps
-            ny = y + 1
+            ny = y - 1
+            c = (x, y)
+            n = (nx, ny)
+            if y > self.dim:
+                c = None
+            if ny > self.dim:
+                n = None
         elif self.direction is 2:
             x = self.point.x + steps
-            nx = x + 1
+            nx = x - 1
+            c = (x, y)
+            n = (nx, ny)
+            if x >= self.dim - 1:
+                c = None
+            if nx >= self.dim - 1:
+                n = None
         elif self.direction is 3:
             y = self.point.y - steps
-            ny = y - 1
+            ny = y + 1
+            c = (x, y)
+            n = (nx, ny)
+            if y <= 0:
+                c = None
+            if ny <= 0:
+                n = None
         else:
             x = self.point.x - steps
-            nx = x - 1
-        return (x, y) #, (nx, ny)
+            nx = x + 1
+            c = (x, y)
+            n = (nx, ny)
+            if x <= 0:
+                c = None
+            if nx <= 0:
+                n = None
+        return c, n
 
     def move(self, max):
         self.steps_to_take -= 1
@@ -72,6 +110,25 @@ class Pawn(Vertex):
             return False
         else:
             return True
+
+    def unmove(self, x, y):
+        self.steps_to_take += 1
+        if self.direction is 1:
+            self.point.y -= 1
+            self.g_y -= CELLSPACING
+            self.point.set_graph_coord(self.point.g_x, self.g_y)
+        elif self.direction is 2:
+            self.point.x -= 1
+            self.g_x -= CELLSPACING
+            self.point.set_graph_coord(self.g_x, self.point.g_y)
+        elif self.direction is 3:
+            self.point.y += 1
+            self.g_x += CELLSPACING
+            self.point.set_graph_coord(self.point.g_x, self.g_y)
+        else:
+            self.point.x += 1
+            self.g_x += CELLSPACING
+            self.point.set_graph_coord(self.g_x, self.point.g_y)
 
     def get_next_move_position(self):
         if self.direction is 1:
