@@ -202,27 +202,27 @@ class GameBoard(wx.Frame):
         print "Generating board for dimension " + str(self.dim)
         # Generate location of knight
         self.knight = Knight(5, 5, self.dim)
-        # self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim)
-        # self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim)
-        # self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim)
-        # self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim)
-        self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim, 2)
-        self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim, 2)
-        self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim, 2)
-        self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim, 2)
+        self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim)
+        self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim)
+        self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim)
+        self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim)
+        # self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim, 2)
+        # self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim, 2)
+        # self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim, 2)
+        # self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim, 2)
         self.validKnightMoves = self.knight.get_valid_moves()
 
         # x = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
         # y = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
         # self.knight = Knight(x, y, self.dim)
         # self.validKnightMoves = self.knight.get_valid_moves()
-        # d = random.randint(0,3)
-        # Generate random pawn location
+        # d = random.randint(0, 3)
+        # #Generate random pawn location
         # for i in range(NUMBER_OF_PAWNS):
         #     while True:
         #         x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
         #         y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
-        #         pawn = pawn_model.Pawn(x, y, self.dim)
+        #         pawn = pawn_model.Pawn(x, y, self.dim, d)
         #         if pawn not in self.pawns and self.knight.get_position() not in self.pawns and pawn not in self.validKnightMoves:
         #             self.pawns[pawn.get_position()] = pawn
         #             break
@@ -271,10 +271,10 @@ class GameBoard(wx.Frame):
 
                     square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
                                                            FillColor=fill_color, LineStyle=None)
-                loc = "(" + str(i) + "," + str(j) + ")"
-                square = self.boardCanvas.AddScaledText(loc, ((i * CELLSPACING) + 10, j * CELLSPACING + 14),
-                                                        5,
-                                                        Color="Black", Position="cc")
+                #loc = "(" + str(i) + "," + str(j) + ")"
+                #square = self.boardCanvas.AddScaledText(loc, ((i * CELLSPACING) + 10, j * CELLSPACING + 14),
+                #                                        5,
+                #                                        Color="Black", Position="cc")
 
                 self.boardCanvasSquares[point] = square
                 square.indexes = point
