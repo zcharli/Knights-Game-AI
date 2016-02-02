@@ -2,6 +2,8 @@ import wx
 
 import pawn as pawn_model
 import queue
+import copy
+from collections import deque
 import random
 from wx.lib.floatcanvas import FloatCanvas
 from graph import Point, Vertex, GraphConstructor
@@ -77,80 +79,78 @@ class GameBoard(wx.Frame):
         cur_farthest_pawn = num_moves_ascending.pop()
         max_search_depth = self.pawns[num_moves_ascending[len(num_moves_ascending) - 1]].steps_to_take
         print "Starting BFS Search with max steps as " + str(max_search_depth)
-        num_pawns_caught = 0
         current_depth = 0
         elements_to_depth_increase = 1
         next_elements_to_depth_increase = 0
         pawn_states = dict()
-        for i in self.pawns:
-            # current_pawns[self.pawns[i]] = self.pawns[i]
-            pawn_states[self.pawns[i].get_position()] = i
 
+        all_pawns = copy.deepcopy(self.pawns)
+
+        # Goals is the possible paths the Knight can take
         goals = dict()
         k_cur_position = self.knight.get_position()
 
-        q = queue.Queue()
-        q.insert([k_cur_position])
+        q = deque()
+        q.append([k_cur_position])
         # Emulate
-        delete_pawns = set()
-        while not q.is_empty():
+        while len(q) != 0:
+
             current_pawns = dict()
-            cur_path = q.remove()
-
+            cur_path = q.popleft()
             (x, y) = cur_path[len(cur_path) - 1]
-
-            cur_valid_moves = self.knight.get_valid_moves(x, y)
             pawn_caught = False
+            tuple_type = type(cur_path[0])
 
-            if type(cur_path[0]) is not tuple:
+            # if tuple_type is not tuple and all_pawns[(4,2)] in cur_path[0] and \
+            #                     cur_path[0][(4,2)] == "1. 4, 5 @ 3" and x != 4 and y != 5:
+            #     # 1. break point magically appear
+            #     print "freeze"
+
+            if current_depth == max_search_depth/2 and tuple_type is tuple:
+                # An attempt to save space, cutting all paths that have no caught half the max
+                if len(goals) >= NUMBER_OF_PAWNS/2:
+                    continue
+            if tuple_type is not tuple:
                 # return the state of this path based on pawns caught
-                diff = set(self.pawns.keys()) - set(cur_path[0].keys())
+                diff = set(all_pawns.keys()) - set(cur_path[0].keys())
                 for i in diff:
-                    current_pawns[self.pawns[i].get_position()] = self.pawns[i]
-
+                    current_pawns[all_pawns[i]] = all_pawns[i]
             else:
-                for i in self.pawns:
-                    current_pawns[self.pawns[i].get_position()] = self.pawns[i]
+                for i in all_pawns:
+                    current_pawns[all_pawns[i]] = all_pawns[i]
 
             # now pawn moves
-            pawn_states = self.get_pawn_states(current_depth, current_pawns, self.dim)
+            pawn_states = self.get_pawn_states(current_depth, current_pawns)
             if (x, y) in pawn_states:
                 pawn_caught = True
                 pawn = pawn_states[(x, y)]
+
                 farthest_pawn = cur_farthest_pawn.get_position_in_steps(current_depth)
                 if farthest_pawn[0] is (x, y) or farthest_pawn[1] is (x, y):
                     cur_farthest_pawn = num_moves_ascending.pop()
-                    max_search_depth = self.pawns[cur_farthest_pawn].steps_to_take
+                    max_search_depth = all_pawns[cur_farthest_pawn].steps_to_take
                     print "caught farthest pawn, reducing max steps to " + str(max_search_depth)
-                pawns_caught_on_this_path = cur_path[0]
-                j = 0
-                if type(pawns_caught_on_this_path) is tuple:
+                if len(cur_path[0]) == 2 and tuple_type is dict:
+                    print "freeze"
+                if current_depth == 3:
+                    print "freeze"
+                if tuple_type is tuple:
                     # first pawn caught
                     cur_path.insert(0, dict())
-                    for j in pawn:
-                        cur_path[0][current_pawns[j]] = "caught: %s, %s at depth %s" % (x, y, current_depth)
-                else:
-                    for j in pawn:
+                for j in pawn:
+                    l = len(cur_path[0].keys())
+                    cur_path[0][current_pawns[j]] = "%s. %s, %s @ %s" % (l, x, y, current_depth)
 
-                        cur_path[0][current_pawns[j]] = "caught: %s, %s at depth %s" % (x, y, current_depth)
-                        if (x,y) not in cur_path:
-                            print "freeze"
                 remove_collisions = False
-                for i in cur_path[0].keys():
-                    last = int(cur_path[0][i][-1:])
-                    (t, z) = i.get_position()
-                    if (t + last, z) not in cur_path:
-                        print "collision "
-                        print pawn
-                        print pawn_states
-                        print (x,y)
-                        print "boooo"
-                        remove_collisions = i
-                if remove_collisions:
-                    del cur_path[0][remove_collisions]
-
-                num_pawns_caught += 1
-
+                # for i in cur_path[0].keys():
+                #     last = int(cur_path[0][i][-1:])
+                #     (t, z) = i.get_position()
+                #     if (t + last, z) not in cur_path:
+                #         print "collision "
+                #         remove_collisions = i
+                # if remove_collisions:
+                #     del cur_path[0][remove_collisions]
+            cur_valid_moves = self.knight.get_valid_moves(x, y)
             next_elements_to_depth_increase += len(cur_valid_moves)
             elements_to_depth_increase -= 1
             if elements_to_depth_increase == 0:
@@ -159,6 +159,8 @@ class GameBoard(wx.Frame):
                 if current_depth >= max_search_depth:
                     print "BFS search ended with " + str(max(goals.keys())) + " pawns caught"
                     print len(goals[max(goals.keys())])
+                    for i in goals[max(goals.keys())]:
+                        print i
                     return
                 elements_to_depth_increase = next_elements_to_depth_increase
                 next_elements_to_depth_increase = 0
@@ -172,7 +174,9 @@ class GameBoard(wx.Frame):
                         goals[num_caught].append(new_path)
                     else:
                         goals[num_caught] = [new_path]
-                q.insert(new_path)
+
+                q.append(new_path)
+
 
     def _start_dfs(self, event):
         print "Starting DFS Search"
@@ -271,10 +275,10 @@ class GameBoard(wx.Frame):
 
                     square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
                                                            FillColor=fill_color, LineStyle=None)
-                #loc = "(" + str(i) + "," + str(j) + ")"
-                #square = self.boardCanvas.AddScaledText(loc, ((i * CELLSPACING) + 10, j * CELLSPACING + 14),
-                #                                        5,
-                #                                        Color="Black", Position="cc")
+                loc = "(" + str(i) + "," + str(j) + ")"
+                square = self.boardCanvas.AddScaledText(loc, ((i * CELLSPACING) + 10, j * CELLSPACING + 14),
+                                                       5,
+                                                       Color="Black", Position="cc")
 
                 self.boardCanvasSquares[point] = square
                 square.indexes = point
@@ -367,11 +371,11 @@ class GameBoard(wx.Frame):
                     new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
                     self.boardCanvasSquares[new_square.indexes] = new_square
                 else:
-                    if next_move in pawns_that_moved_this_round.values():
-                        self.pawns[pawn].unmove(i, j)
-                        continue
-                    else:
-                        pawns_that_moved_this_round[pawn] = next_move
+                    # if next_move in pawns_that_moved_this_round.values():
+                    #     self.pawns[pawn].unmove(i, j)
+                    #     continue
+                    # else:
+                    #     pawns_that_moved_this_round[pawn] = next_move
 
                     next_square = self.boardCanvasSquares[(i, j)]
                     self.boardCanvas.RemoveObject(next_square)
@@ -463,10 +467,15 @@ class GameBoard(wx.Frame):
             list_pawns.append(self.pawns[i])
         return sorted(list_pawns, key=lambda x: x.steps_to_take, reverse=False)
 
-    def get_pawn_states(self, steps, pawns, dim):
+    def get_pawn_states(self, steps, pawns):
         pawn_states = dict()
         for i in pawns:
-            (c, n) = pawns[i].get_position_in_steps(steps)
+            c, n = pawns[i].get_position_in_steps(steps)
+            # if c is not None:
+            #     if c not in pawn_states:
+            #         pawn_states[c] = [i]
+            #     else:
+            #         pawn_states[c].append(i)
             if c is not None:
                 if c not in pawn_states:
                     pawn_states[c] = [i]
