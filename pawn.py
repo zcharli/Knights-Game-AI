@@ -53,6 +53,22 @@ class Pawn(Vertex):
         if self.direction is 1:
             y = self.point.y + steps
             ny = y - 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             c = (x, y)
             n = (nx, ny)
             if y > self.dim:

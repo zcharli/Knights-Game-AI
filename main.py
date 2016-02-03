@@ -101,10 +101,10 @@ class GameBoard(wx.Frame):
             pawn_caught = False
             tuple_type = type(cur_path[0])
 
-            # if tuple_type is not tuple and all_pawns[(4,2)] in cur_path[0] and \
-            #                     cur_path[0][(4,2)] == "1. 4, 5 @ 3" and x != 4 and y != 5:
-            #     # 1. break point magically appear
-            #     print "freeze"
+            if tuple_type is not tuple and all_pawns[(4,2)] in cur_path[0] and \
+                                cur_path[0][(4,2)] == "1. 4, 5 @ 3" and x != 4 and y != 5:
+                # 1. break point magically appear
+                print "freeze"
 
             if current_depth == max_search_depth/2 and tuple_type is tuple:
                 # An attempt to save space, cutting all paths that have no caught half the max
@@ -139,7 +139,7 @@ class GameBoard(wx.Frame):
                     cur_path.insert(0, dict())
                 for j in pawn:
                     l = len(cur_path[0].keys())
-                    cur_path[0][current_pawns[j]] = "%s. %s, %s @ %s" % (l, x, y, current_depth)
+                    cur_path[0][current_pawns[j]] = "caught on step %s. (%s, %s) with depth  %s" % (l, x, y, current_depth)
 
                 remove_collisions = False
                 # for i in cur_path[0].keys():
@@ -275,10 +275,10 @@ class GameBoard(wx.Frame):
 
                     square = self.boardCanvas.AddRectangle((i * CELLSPACING, j * CELLSPACING), (CELLWIDTH, CELLWIDTH),
                                                            FillColor=fill_color, LineStyle=None)
-                loc = "(" + str(i) + "," + str(j) + ")"
-                square = self.boardCanvas.AddScaledText(loc, ((i * CELLSPACING) + 10, j * CELLSPACING + 14),
-                                                       5,
-                                                       Color="Black", Position="cc")
+                # loc = "(" + str(i) + "," + str(j) + ")"
+                # square = self.boardCanvas.AddScaledText(loc, ((i * CELLSPACING) + 10, j * CELLSPACING + 14),
+                #                                        5,
+                #                                        Color="Black", Position="cc")
 
                 self.boardCanvasSquares[point] = square
                 square.indexes = point
@@ -338,10 +338,11 @@ class GameBoard(wx.Frame):
         # print "player made a move square hit:" + str(square.indexes)
         if square.indexes in self.validKnightMoves:
             self.add_knight_to_position(square)
-            if square.indexes in self.pawns:
+            current_pos = dict(zip(self.pawns.values(),self.pawns.keys()))
+            if square.indexes in current_pos:
                 print "caught a pawn"
                 self.pawnsCaught += 1
-                del self.pawns[square.indexes]
+                del self.pawns[current_pos[square.indexes]]
             self.clear_valid_moves()
             self.generate_new_valid_moves()
             self.move_pawns()
