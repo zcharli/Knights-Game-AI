@@ -1,43 +1,48 @@
 from graph import Vertex, Point
 from main import CELLSPACING
 
+RIGHT = 4
+LEFT = 3
+UP = 1
+DOWN = 2
 
 class Pawn(Vertex):
     def __init__(self, x, y, dim, d=None):
         super(Pawn, self).__init__(x, y)
         self.steps_to_take = 0
         self.dim = dim
+        self.move_fwd = True
         if d is not None:
             self.direction = d
-            if d is 1:
+            if d is UP:
                 # go left.
                 self.steps_to_take = dim - y
-            elif d is 2:
+            elif d is DOWN:
                 self.steps_to_take = dim - x
-            elif d is 3:
+            elif d is LEFT:
                 self.steps_to_take = y
             else:
                 self.steps_to_take = x
         else:
             if x > dim - x:
                 # go left.
-                self.direction = 4
+                self.direction = LEFT
                 x_len = x
                 self.steps_to_take = x_len
             else:
                 # go right
-                self.direction = 2
+                self.direction = RIGHT
                 x_len = dim - x
                 self.steps_to_take = x_len
             if y > dim - y:
                 # go down
                 if y > x_len:
-                    self.direction = 3
+                    self.direction = DOWN
                     self.steps_to_take = y
             else:
                 # go right
                 if dim - y > x_len:
-                    self.direction = 1
+                    self.direction = UP
                     self.steps_to_take = dim - y
 
     def get_location(self):
@@ -53,22 +58,6 @@ class Pawn(Vertex):
         if self.direction is 1:
             y = self.point.y + steps
             ny = y - 1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             c = (x, y)
             n = (nx, ny)
             if y > self.dim:
@@ -104,28 +93,71 @@ class Pawn(Vertex):
                 n = None
         return c, n
 
+    def get_tuple_possible_moves(self):
+        m = 0
+        v = 0
+        x = self.point.x
+        y = self.point.y
+        if self.direction is DOWN:
+            m = (x,y)
+            v = (x, y-1)
+        elif self.direction is LEFT:
+            m = (x,y)
+            v = (x-1, y)
+        elif self.direction is UP:
+            m = (x,y)
+            v = (x, y+1)
+        else:
+            m = (x,y)
+            v = (x+1, y)
+        return m, v
+
     def move(self, max):
-        self.steps_to_take -= 1
-        if self.direction is 1:
-            self.point.y += 1
-            self.g_y += CELLSPACING
-            self.point.set_graph_coord(self.point.g_x, self.g_y)
-        elif self.direction is 2:
-            self.point.x += 1
-            self.g_x += CELLSPACING
-            self.point.set_graph_coord(self.g_x, self.point.g_y)
-        elif self.direction is 3:
-            self.point.y -= 1
-            self.g_x -= CELLSPACING
-            self.point.set_graph_coord(self.point.g_x, self.g_y)
+        #self.steps_to_take -= 1
+        if self.move_fwd:
+            if self.direction is DOWN:
+                self.point.y -= 1
+                self.g_y -= CELLSPACING
+                self.point.set_graph_coord(self.point.g_x, self.g_y)
+            elif self.direction is LEFT:
+                self.point.x -= 1
+                self.g_x -= CELLSPACING
+                self.point.set_graph_coord(self.g_x, self.point.g_y)
+            elif self.direction is UP:
+                self.point.y += 1
+                self.g_x += CELLSPACING
+                self.point.set_graph_coord(self.point.g_x, self.g_y)
+            else:
+                self.point.x += 1
+                self.g_x += CELLSPACING
+                self.point.set_graph_coord(self.g_x, self.point.g_y)
+            # if self.point.x < 0 or self.point.y < 0 or self.point.y >= max or self.point.x >= max:
+            #     return False
+            # else:
+            #     return True
+
         else:
-            self.point.x -= 1
-            self.g_x -= CELLSPACING
-            self.point.set_graph_coord(self.g_x, self.point.g_y)
-        if self.point.x < 0 or self.point.y < 0 or self.point.y >= max or self.point.x >= max:
-            return False
-        else:
-            return True
+            if self.direction is DOWN:
+                self.point.y += 1
+                self.g_y += CELLSPACING
+                self.point.set_graph_coord(self.point.g_x, self.g_y)
+            elif self.direction is LEFT:
+                self.point.x += 1
+                self.g_x += CELLSPACING
+                self.point.set_graph_coord(self.g_x, self.point.g_y)
+            elif self.direction is UP:
+                self.point.y -= 1
+                self.g_x -= CELLSPACING
+                self.point.set_graph_coord(self.point.g_x, self.g_y)
+            else:
+                self.point.x -= 1
+                self.g_x -= CELLSPACING
+                self.point.set_graph_coord(self.g_x, self.point.g_y)
+        self.move_fwd = not self.move_fwd
+            # if self.point.x < 0 or self.point.y < 0 or self.point.y >= max or self.point.x >= max:
+            #     return False
+            # else:
+        return True
 
     def unmove(self, x, y):
         self.steps_to_take += 1
