@@ -180,7 +180,12 @@ class GameBoard(wx.Frame):
                     pass
                 q.append(new_node)
 
-        print goal_node
+        self._search_tree(goal_node)
+
+    def _search_tree(self, node):
+        print self.int_to_coord_mappings[node.path_id]
+        if node.parent is not None:
+            self._search_tree(node.parent)
 
     def _start_dfs(self, event):
         print "Starting DFS Search"
@@ -209,31 +214,27 @@ class GameBoard(wx.Frame):
             self.dim = DEFAULT_SIZE
         print "Generating board for dimension " + str(self.dim)
         # Generate location of knight
-        self.knight = Knight(5, 5, self.dim)
-        self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim)
-        self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim)
-        self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim)
-        self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim)
-        # self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim, 2)
-        # self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim, 2)
-        # self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim, 2)
-        # self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim, 2)
-        self.validKnightMoves = self.knight.get_valid_moves()
-
-        # x = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
-        # y = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
-        # self.knight = Knight(x, y, self.dim)
+        # self.knight = Knight(5, 5, self.dim)
+        # self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim)
+        # self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim)
+        # self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim)
+        # self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim)
         # self.validKnightMoves = self.knight.get_valid_moves()
-        # d = random.randint(0, 3)
-        # #Generate random pawn location
-        # for i in range(NUMBER_OF_PAWNS):
-        #     while True:
-        #         x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
-        #         y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
-        #         pawn = pawn_model.Pawn(x, y, self.dim, d)
-        #         if pawn not in self.pawns and self.knight.get_position() not in self.pawns and pawn not in self.validKnightMoves:
-        #             self.pawns[pawn.get_position()] = pawn
-        #             break
+
+        x = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
+        y = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
+        self.knight = Knight(x, y, self.dim)
+        self.validKnightMoves = self.knight.get_valid_moves()
+        d = random.randint(0, 3)
+        #Generate random pawn location
+        for i in range(NUMBER_OF_PAWNS):
+            while True:
+                x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+                y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+                pawn = pawn_model.Pawn(x, y, self.dim, d)
+                if pawn not in self.pawns and self.knight.get_position() not in self.pawns and pawn not in self.validKnightMoves:
+                    self.pawns[pawn.get_position()] = pawn
+                    break
 
     def _build_board_canvas(self, dimension):
         board_canvas = FloatCanvas.FloatCanvas(self, size=(800, 650),
