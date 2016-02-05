@@ -1,5 +1,5 @@
 class StateSpaceNode:
-    def __init__(self, parent, path, depth, pawns=[]):
+    def __init__(self, parent, path, depth, pawns={}):
         self.parent = parent
         self.int_position_pawns_caught = pawns
         self.path_id = path
@@ -12,7 +12,10 @@ class StateSpaceNode:
 
     def __eq__(self, other):
         has_value = True
-        for p in self.int_position_pawns_caught:
-            if p not in other.int_position_pawns_caught:
-                has_value = False
-        return self.path_id == other.path_id and has_value and self.depth == other.depth
+        # for p in self.int_position_pawns_caught:
+        #     if p not in other.int_position_pawns_caught:
+        #         has_value = False
+        return self.path_id == other.path_id and \
+               len(self.int_position_pawns_caught - other.int_position_pawns_caught |
+                   other.int_position_pawns_caught - self.int_position_pawns_caught) == 0 \
+               and self.depth == other.depth

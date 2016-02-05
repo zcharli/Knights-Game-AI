@@ -2,13 +2,17 @@ import wx
 
 import pawn as pawn_model
 import queue
+import time
 from statespace import StateSpaceNode
 import copy
 from collections import deque
 import random
+import worker
 from wx.lib.floatcanvas import FloatCanvas
 from graph import Point, Vertex, GraphConstructor
 from knight import Knight
+import thread
+import wx.lib.newevent
 
 PLAYGAME = wx.NewId()
 DFS = wx.NewId()
@@ -16,7 +20,8 @@ BFS = wx.NewId()
 ASTAR = wx.NewId()
 KNIGHTSBOARD = wx.NewId()
 
-DEFAULT_SIZE = 10
+SLEEP_TIME_SECONDS = 0
+DEFAULT_SIZE = 20
 NUMBER_OF_PAWNS = 4
 CELLWIDTH = 30
 CELLSPACING = 32
@@ -31,6 +36,7 @@ class GameBoard(wx.Frame):
         # Declare game variables
         self._init_game_variables()
         self.txtDimensions = None
+        self.txtPawns = None
         # General game objects
         self._generate_starting_locations()
         # Generate game environment
@@ -51,15 +57,18 @@ class GameBoard(wx.Frame):
         self.int_to_coord_mappings = dict()
 
     def _do_layout(self):
-        sizer = wx.FlexGridSizer(cols=6, hgap=6, vgap=6)
+        sizer = wx.FlexGridSizer(rows=2, cols=6, hgap=6, vgap=6)
         self.btnPlayGame = wx.Button(self, PLAYGAME, "Play Game")
         self.btnDFS = wx.Button(self, DFS, "Depth First Search")
         self.btnBFS = wx.Button(self, BFS, "Breadth First Search")
         self.btnAStar = wx.Button(self, ASTAR, "A* Search")
         lbl_dimensions = wx.StaticText(self, -1, "Grid Dimensions")
+        lblPawns = wx.StaticText(self, -1, "# Pawns")
         self.txtDimensions = wx.TextCtrl(self, -1, str(DEFAULT_SIZE), size=(125, -1))
-        sizer.AddMany([self.btnPlayGame, lbl_dimensions, self.txtDimensions,
-                       self.btnBFS, self.btnDFS, self.btnAStar])
+        self.txtPawns = wx.TextCtrl(self, -1, str(NUMBER_OF_PAWNS), size=(125, -1))
+        sizer.AddMany([self.btnPlayGame, lbl_dimensions, self.txtDimensions, lblPawns, self.txtPawns])
+        sizer.AddStretchSpacer()
+        sizer.AddMany([self.btnBFS, self.btnDFS, self.btnAStar])
         self.screen = wx.BoxSizer(wx.VERTICAL)
         self.screen.Add(sizer, 0, wx.ALL, 25)
         self.boardCanvas = None
@@ -68,6 +77,7 @@ class GameBoard(wx.Frame):
 
         # Build Board duplicate code, somehow I must do it in init
         self.dim = int(self.txtDimensions.GetValue())
+        self.number_of_pawns = int(self.txtPawns.GetValue())
         self._build_board_canvas(self.dim)
         self.screen.Add(self.boardCanvas, 0, wx.ALL, 25)
 
@@ -76,7 +86,9 @@ class GameBoard(wx.Frame):
         wx.EVT_BUTTON(self, BFS, self._start_bfs)
         wx.EVT_BUTTON(self, DFS, self._start_dfs)
         wx.EVT_BUTTON(self, ASTAR, self._start_astar)
-    # 48, 36, 44, 65, 84, 72
+        self.Bind(worker.EVT_MAKE_MOVE, self.make_artificial_move)
+        self.Bind(worker.EVT_PAWN_MOVE, self.make_artificial_pawn_move)
+
     def _start_bfs(self, event):
         print "Starting BFS Search"
         # Tell our knight about the mappings
@@ -98,7 +110,7 @@ class GameBoard(wx.Frame):
             # It is possible that two pawns end up at the same "second" location, but not first
             # If this happens, we catch them all.
             if ending_int_location_representation in pawn_int_possible_locations_mapping:
-                pawn_int_possible_locations_mapping[ending_int_location_representation]\
+                pawn_int_possible_locations_mapping[ending_int_location_representation] \
                     .append(starting_int_location_representation)
             else:
                 pawn_int_possible_locations_mapping[ending_int_location_representation] = \
@@ -133,7 +145,7 @@ class GameBoard(wx.Frame):
                 pawns_at_position = pawn_int_possible_locations_mapping[current_position]
                 # Generally only 1 element at this position, sometimes two, with max NUMBER_OF_PAWNS
                 for pawn in pawns_at_position:
-                    # This is an O(n) operation here -> to save space... over 70% of space
+                    # This is an O(1) operation here
                     if pawn in current_node.int_position_pawns_caught:
                         # Map them pawn caught back to the pawn at starting position
                         pawns_caught.extend(pawn_int_possible_locations_mapping[current_position])
@@ -153,10 +165,10 @@ class GameBoard(wx.Frame):
             # Build new Nodes for all the discovered valid moves
             for path_id in cur_valid_moves:
                 new_node = StateSpaceNode(current_node, path_id, current_depth,
-                                          copy.deepcopy(current_node.int_position_pawns_caught))
+                                          set(copy.deepcopy(current_node.int_position_pawns_caught)))
                 if pawn_caught:
                     for pawn in pawns_caught:
-                        # This is an O(n^2) operation, do not expect it to run much more than n^NUMBER_OF_PAWNS
+                        # This is an O(1) operation, do not expect it to run much more than n^NUMBER_OF_PAWNS
                         if pawn in new_node.int_position_pawns_caught:
                             new_node.int_position_pawns_caught.remove(pawn)
                     if len(new_node.int_position_pawns_caught) == 0:
@@ -179,13 +191,34 @@ class GameBoard(wx.Frame):
                 else:
                     pass
                 q.append(new_node)
+        print "Search finished"
+        k = goal_node
+        while k.parent is not None:
+            print self.int_to_coord_mappings[k.path_id]
+            k = k.parent
+        player = worker.ComputerPlayer(self, goal_node, self.boardCanvasSquares, self.int_to_coord_mappings)
+        player.start()
 
-        self._search_tree(goal_node)
+    def make_artificial_move(self, evt):
+        # self.make_move(evt.get_value())
+        square = evt.get_value()
+        # print "player made a move square hit:" + str(square.indexes)
+        # print self.knight.get_position()
+        if square.indexes in self.validKnightMoves:
+            self.add_knight_to_position(square)
+            current_pos = dict(zip(self.pawns.values(), self.pawns.keys()))
+            if square.indexes in current_pos:
+                print "caught a pawn"
+                self.pawnsCaught += 1
+                del self.pawns[current_pos[square.indexes]]
+            self.clear_valid_moves()
+            self.generate_new_valid_moves()
+            self.boardCanvas.Draw(Force=True)
 
-    def _search_tree(self, node):
-        print self.int_to_coord_mappings[node.path_id]
-        if node.parent is not None:
-            self._search_tree(node.parent)
+    def make_artificial_pawn_move(self, evt):
+        square = evt.get_value()
+        self.move_pawns()
+        self.boardCanvas.Draw(Force=True)
 
     def _start_dfs(self, event):
         print "Starting DFS Search"
@@ -212,22 +245,20 @@ class GameBoard(wx.Frame):
             self.dim = int(self.txtDimensions.GetValue())
         else:
             self.dim = DEFAULT_SIZE
-        print "Generating board for dimension " + str(self.dim)
-        # Generate location of knight
-        # self.knight = Knight(5, 5, self.dim)
-        # self.pawns[(8, 3)] = pawn_model.Pawn(8, 3, self.dim)
-        # self.pawns[(4, 2)] = pawn_model.Pawn(4, 2, self.dim)
-        # self.pawns[(3, 7)] = pawn_model.Pawn(3, 7, self.dim)
-        # self.pawns[(6, 4)] = pawn_model.Pawn(6, 4, self.dim)
-        # self.validKnightMoves = self.knight.get_valid_moves()
+        if self.txtPawns:
+            self.number_of_pawns = int(self.txtPawns.GetValue())
+        else:
+            self.number_of_pawns = NUMBER_OF_PAWNS
+        print "Generating board for dimension " + str(self.dim) + " with " + str(self.number_of_pawns) + " pawns."
 
+        # Generate location of knight
         x = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
         y = random.randint(0 + int(self.dim / 4), self.dim - (int(self.dim / 4)))
         self.knight = Knight(x, y, self.dim)
         self.validKnightMoves = self.knight.get_valid_moves()
         d = random.randint(0, 3)
-        #Generate random pawn location
-        for i in range(NUMBER_OF_PAWNS):
+        # Generate random pawn location
+        for i in range(self.number_of_pawns):
             while True:
                 x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
                 y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
@@ -284,16 +315,20 @@ class GameBoard(wx.Frame):
                 square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
 
     def add_knight_to_position(self, square):
+
         # Remove old squares: Knight and legal (green) move square
-        self.boardCanvas.RemoveObject(square)
+        try:
+            delete_square = self.boardCanvasSquares[square.indexes]
+            self.boardCanvas.RemoveObject(delete_square)
+        except:
+            print "point not in canvas"
+            print square.indexes
         # Save the previous knight position to create new white square
-        knight_prev_coord = self.knight.get_graph_coord()
         knight_prev_position = self.knight.get_position()
         square_prev_position = square.indexes
         k_square = self.boardCanvasSquares[knight_prev_position]
         k_prev_indexes = k_square.indexes
         self.boardCanvas.RemoveObject(k_square)
-
         (t, v) = square.indexes.get_graph_coord()
         square = self.boardCanvas.AddRectangle((t, v), (CELLWIDTH, CELLWIDTH),
                                                FillColor="White", LineStyle=None)
@@ -302,9 +337,6 @@ class GameBoard(wx.Frame):
                                                            CELLWIDTH + 5,
                                                            Color="Black", Position="cc")
         # Create a new knight square at the square where the move was made
-        # knight_new_square = self.boardCanvas.AddScaledBitmap(knight_icon, square.indexes.get_graph_coord(),
-        #                                                      CELLWIDTH,
-        #                                                      Position='bl')
         knight_new_square.indexes = square_prev_position
         knight_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
         self.boardCanvasSquares[knight_new_square.indexes] = knight_new_square
@@ -324,6 +356,17 @@ class GameBoard(wx.Frame):
         for coords in self.validKnightMoves:
             if coords in self.boardCanvasSquares:
                 self.color_square(self.boardCanvasSquares[coords], GREEN)
+            # if coords in self.pawns:
+            #     pawn = self.pawns[coords]
+            #     (t, v) = pawn.get_graph_coord()
+            #     square = self.boardCanvas.AddRectangle((t, v),
+            #                                            (CELLWIDTH, CELLWIDTH),
+            #                                            FillColor=GREEN, LineStyle=None)
+            #     pawn_new_square = self.boardCanvas.AddScaledText(u"\u265F", (t + 15, v + 15), CELLWIDTH + 5,
+            #                                                      Color="Black", Position="cc")
+            #     pawn_new_square.indexes = Point(pawn.point.x, pawn.point.y)
+            #     pawn_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
+            #     self.boardCanvasSquares[pawn_new_square.indexes] = pawn_new_square
         self.boardCanvas.Draw(True)
 
     def clear_valid_moves(self):
@@ -333,6 +376,7 @@ class GameBoard(wx.Frame):
         self.validKnightMoves = {}
 
     def make_move(self, square):
+        print self.knight.get_position()
         # print "player made a move square hit:" + str(square.indexes)
         if square.indexes in self.validKnightMoves:
             self.add_knight_to_position(square)
@@ -349,8 +393,8 @@ class GameBoard(wx.Frame):
     def move_pawns(self):
         pawns_to_delete = []
         pawns_that_moved_this_round = dict()
-        for pawn in self.pawns:
 
+        for pawn in self.pawns:
             (i, j) = self.pawns[pawn].get_position()
             current_square = self.boardCanvasSquares[(i, j)]
             if self.pawns[pawn].move(self.dim):
@@ -366,12 +410,6 @@ class GameBoard(wx.Frame):
                     new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
                     self.boardCanvasSquares[new_square.indexes] = new_square
                 else:
-                    # if next_move in pawns_that_moved_this_round.values():
-                    #     self.pawns[pawn].unmove(i, j)
-                    #     continue
-                    # else:
-                    #     pawns_that_moved_this_round[pawn] = next_move
-
                     next_square = self.boardCanvasSquares[(i, j)]
                     self.boardCanvas.RemoveObject(next_square)
                     self.boardCanvas.RemoveObject(current_square)
@@ -388,9 +426,6 @@ class GameBoard(wx.Frame):
                     (t, v) = next_square.indexes.get_graph_coord()
                     pawn_new_square = self.boardCanvas.AddScaledText(u"\u265F", (t + 15, v + 15), CELLWIDTH + 5,
                                                                      Color="Black", Position="cc")
-                    # pawn_new_square = self.boardCanvas.AddScaledBitmap(pawn_icon, next_square.indexes.get_graph_coord(),
-                    #                                                    CELLWIDTH,
-                    #                                                    Position='bl')
                     if current_square.indexes in self.validKnightMoves:
                         fill_color = GREEN
                     else:
