@@ -1,4 +1,4 @@
-class StateSpaceNode:
+class StateSpaceNode(object):
     def __init__(self, parent, path, depth, pawns={}):
         self.parent = parent
         self.int_position_pawns_caught = pawns
@@ -19,3 +19,9 @@ class StateSpaceNode:
                len(self.int_position_pawns_caught - other.int_position_pawns_caught |
                    other.int_position_pawns_caught - self.int_position_pawns_caught) == 0 \
                and self.depth == other.depth
+
+
+class StateSpaceNodeDFS(StateSpaceNode):
+    def __init__(self, parent, path, depth, pawns={}):
+        super(StateSpaceNodeDFS, self).__init__(parent, path, depth, pawns)
+        self.hash = hash((self.path_id, tuple(self.int_position_pawns_caught)))

@@ -3,7 +3,7 @@ import wx
 import pawn as pawn_model
 import queue
 import time
-from statespace import StateSpaceNode
+from statespace import StateSpaceNode, StateSpaceNodeDFS
 import copy
 from collections import deque
 import random
@@ -221,7 +221,127 @@ class GameBoard(wx.Frame):
         self.boardCanvas.Draw(Force=True)
 
     def _start_dfs(self, event):
-        print "Starting DFS Search"
+        print "Starting BFS Search"
+        # Tell our knight about the mappings
+        self.knight.set_coord_mappings(self.coord_to_int_mappings, self.int_to_coord_mappings)
+
+        # Map out pawns out for search, as we represent each location of the pawn with integer
+        # From int to pawn -> get pawn starting location #, convert coord, use self.pawns to retrieve
+        pawn_int_mappings = set()
+        pawn_int_possible_locations_mapping = dict()
+        pawns_on_the_board = []
+        for pawn in self.pawns:
+            # Map all the possible ending locations to point back to the same pawn
+            s, e = self.pawns[pawn].get_tuple_possible_moves()
+            starting_int_location_representation = self.coord_to_int_mappings[s]
+            ending_int_location_representation = self.coord_to_int_mappings[e]
+            pawn_int_mappings.add(starting_int_location_representation)
+            pawn_int_possible_locations_mapping[starting_int_location_representation] = \
+                [starting_int_location_representation]
+            # It is possible that two pawns end up at the same "second" location, but not first
+            # If this happens, we catch them all.
+            if ending_int_location_representation in pawn_int_possible_locations_mapping:
+                pawn_int_possible_locations_mapping[ending_int_location_representation] \
+                    .append(starting_int_location_representation)
+            else:
+                pawn_int_possible_locations_mapping[ending_int_location_representation] = \
+                    [starting_int_location_representation]
+            pawns_on_the_board.append(starting_int_location_representation)
+
+        # Depth control variables
+        current_depth = 0
+        elements_to_depth_increase = 1
+        next_elements_to_depth_increase = 0
+
+        # Our queue, using the deque implementation
+        q = []
+        root_node = StateSpaceNodeDFS(None,
+                                      self.coord_to_int_mappings[self.knight.get_position()],
+                                      0,
+                                      pawns_on_the_board)
+        q.append(root_node)
+        goal_not_reached = True
+        goal_node = None
+
+        # All the states that ever passed.
+        state_history = set()
+
+        # Build the tree
+        while len(q) != 0 and goal_not_reached:
+            current_node = q.pop()
+            pawn_caught = False
+            current_position = current_node.path_id
+            pawns_caught = []
+
+            # Check if we caught a pawn at this position
+            if current_position in pawn_int_possible_locations_mapping:
+                pawn_caught = True
+                pawns_at_position = pawn_int_possible_locations_mapping[current_position]
+                # Generally only 1 element at this position, sometimes two, with max NUMBER_OF_PAWNS
+                for pawn in pawns_at_position:
+                    # This is an O(1) operation here
+                    if pawn in current_node.int_position_pawns_caught:
+                        # Map them pawn caught back to the pawn at starting position
+                        pawns_caught.extend(pawn_int_possible_locations_mapping[current_position])
+
+            # Get a set of all possible int mappings of coordinates
+            cur_valid_moves = self.knight.get_valid_moves(current_position, True)
+
+            # Calculate the depth dynamically
+            next_elements_to_depth_increase += len(cur_valid_moves)
+            elements_to_depth_increase -= 1
+            if elements_to_depth_increase == 0:
+                current_depth += 1
+                print current_depth
+                elements_to_depth_increase = next_elements_to_depth_increase
+                next_elements_to_depth_increase = 0
+
+            # DFS will require some smart choices if possible
+            captureable_pawns = cur_valid_moves.intersection(pawn_int_possible_locations_mapping)
+            if len(captureable_pawns) > 0:
+                temp_valid_moves = []
+                for path in cur_valid_moves:
+                    if path not in captureable_pawns:
+                        temp_valid_moves.append(path)
+                temp_valid_moves.extend(captureable_pawns)
+                cur_valid_moves = temp_valid_moves
+
+            # Build new Nodes for all the discovered valid moves
+            for path_id in cur_valid_moves:
+                new_node = StateSpaceNodeDFS(current_node, path_id, current_depth,
+                                             set(copy.deepcopy(current_node.int_position_pawns_caught)))
+                if pawn_caught:
+                    for pawn in pawns_caught:
+                        # This is an O(1) operation, do not expect it to run much more than n^NUMBER_OF_PAWNS
+                        if pawn in new_node.int_position_pawns_caught:
+                            new_node.int_position_pawns_caught.remove(pawn)
+                    if len(new_node.int_position_pawns_caught) == 0:
+                        goal_not_reached = False
+                        goal_node = new_node
+                        break
+                if new_node in state_history:
+                    continue
+                else:
+                    state_history.add(new_node)
+                # We will have to prune the trees
+                if new_node.parent is not None:
+                    if new_node.parent.parent is not None:
+                        if new_node.path_id != new_node.parent.parent.path_id:
+                            pass
+                        else:
+                            continue
+                    else:
+                        pass
+                else:
+                    pass
+                q.append(new_node)
+        print "Search finished"
+        k = goal_node
+        while k.parent is not None:
+            print self.int_to_coord_mappings[k.path_id]
+            k = k.parent
+        player = worker.ComputerPlayer(self, goal_node, self.boardCanvasSquares, self.int_to_coord_mappings)
+        player.start()
 
     def _start_astar(self, event):
         print "Starting A Star"
@@ -356,17 +476,17 @@ class GameBoard(wx.Frame):
         for coords in self.validKnightMoves:
             if coords in self.boardCanvasSquares:
                 self.color_square(self.boardCanvasSquares[coords], GREEN)
-            # if coords in self.pawns:
-            #     pawn = self.pawns[coords]
-            #     (t, v) = pawn.get_graph_coord()
-            #     square = self.boardCanvas.AddRectangle((t, v),
-            #                                            (CELLWIDTH, CELLWIDTH),
-            #                                            FillColor=GREEN, LineStyle=None)
-            #     pawn_new_square = self.boardCanvas.AddScaledText(u"\u265F", (t + 15, v + 15), CELLWIDTH + 5,
-            #                                                      Color="Black", Position="cc")
-            #     pawn_new_square.indexes = Point(pawn.point.x, pawn.point.y)
-            #     pawn_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
-            #     self.boardCanvasSquares[pawn_new_square.indexes] = pawn_new_square
+                # if coords in self.pawns:
+                #     pawn = self.pawns[coords]
+                #     (t, v) = pawn.get_graph_coord()
+                #     square = self.boardCanvas.AddRectangle((t, v),
+                #                                            (CELLWIDTH, CELLWIDTH),
+                #                                            FillColor=GREEN, LineStyle=None)
+                #     pawn_new_square = self.boardCanvas.AddScaledText(u"\u265F", (t + 15, v + 15), CELLWIDTH + 5,
+                #                                                      Color="Black", Position="cc")
+                #     pawn_new_square.indexes = Point(pawn.point.x, pawn.point.y)
+                #     pawn_new_square.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.make_move)
+                #     self.boardCanvasSquares[pawn_new_square.indexes] = pawn_new_square
         self.boardCanvas.Draw(True)
 
     def clear_valid_moves(self):
