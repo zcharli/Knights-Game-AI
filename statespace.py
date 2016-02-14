@@ -24,4 +24,4 @@ class StateSpaceNode(object):
 class StateSpaceNodeDFS(StateSpaceNode):
     def __init__(self, parent, path, depth, pawns={}):
         super(StateSpaceNodeDFS, self).__init__(parent, path, depth, pawns)
-        self.hash = hash((self.path_id, tuple(self.int_position_pawns_caught)))
+        self.hash = hash(self.path_id)
