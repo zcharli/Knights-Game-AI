@@ -21,9 +21,10 @@ class StateSpaceNode(object):
 
 
 class StateSpaceNodeDFS(StateSpaceNode):
-    def __init__(self, parent, path, depth, pawns={}):
+    def __init__(self, parent, path, depth, pawns={}, last_move=None):
         super(StateSpaceNodeDFS, self).__init__(parent, path, depth, pawns)
-        self.hash = hash(self.path_id)
+        self.last_move = last_move
+        self.hash = hash((self.path_id, tuple(self.int_position_pawns_caught), self.last_move))
 
     def __hash__(self):
         return self.hash
@@ -39,9 +40,9 @@ class StateSpaceNodeDFS(StateSpaceNode):
 class StateSpaceNodeAStar(StateSpaceNode):
     def __init__(self, parent, path, depth, pawns={}, cost=0, priority=0):
         super(StateSpaceNodeAStar, self).__init__(parent, path, depth, pawns)
-        self.hash = hash((self.depth, self.path_id, tuple(self.int_position_pawns_caught)))
+        self.hash = hash((self.path_id, tuple(self.int_position_pawns_caught)))
         self.priority = priority
-        self.cost = cost;
+        self.cost = cost
 
     def __cmp__(self, other):
         return cmp(self.priority, other.priority)

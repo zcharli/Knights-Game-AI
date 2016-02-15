@@ -25,7 +25,7 @@ DEFAULT_SIZE = 20
 NUMBER_OF_PAWNS = 4
 CELLWIDTH = 30
 CELLSPACING = 32
-SPAWNPADDING = 2
+SPAWNPADDING = 3
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
 
@@ -134,6 +134,9 @@ class GameBoard(wx.Frame):
         state_history = set()
 
         # Build the tree
+        nodes_generated = 0
+        nodes_total_generated = 0
+        caught_pawns = 0
         while len(q) != 0 and goal_not_reached:
             current_node = q.popleft()
             pawn_caught = False
@@ -165,23 +168,28 @@ class GameBoard(wx.Frame):
 
             # Build new Nodes for all the discovered valid moves
             for path_id in cur_valid_moves:
+                nodes_total_generated += 1
                 new_node = StateSpaceNode(current_node, path_id, current_depth,
                                           set(copy.deepcopy(current_node.int_position_pawns_caught)))
                 if pawn_caught:
                     for pawn in pawns_caught:
+                        caught_pawns += 1
                         # This is an O(1) operation, do not expect it to run much more than n^NUMBER_OF_PAWNS
                         if pawn in new_node.int_position_pawns_caught:
                             new_node.int_position_pawns_caught.remove(pawn)
                     if len(new_node.int_position_pawns_caught) == 0:
                         goal_not_reached = False
                         goal_node = new_node
+                        print "Goal has been reached"
                         break
                 if new_node in state_history:
                     continue
                 else:
                     state_history.add(new_node)
                 q.append(new_node)
-        print "Search finished"
+                nodes_generated += 1
+        print "After generating a total %d nodes when using just %d states, the search finished with %d pawns caught" % \
+              (nodes_total_generated, nodes_generated, caught_pawns)
         k = goal_node
         while k.parent is not None:
             print self.int_to_coord_mappings[k.path_id]
@@ -257,6 +265,9 @@ class GameBoard(wx.Frame):
         state_history = set()
 
         # Build the tree
+        nodes_generated = 0
+        nodes_total_generated = 0
+        caught_pawns = 0
         while len(q) != 0 and goal_not_reached:
             current_node = q.pop()
             pawn_caught = False
@@ -296,24 +307,29 @@ class GameBoard(wx.Frame):
 
             # Build new Nodes for all the discovered valid moves
             for path_id in cur_valid_moves:
+                nodes_total_generated += 1
                 new_node = StateSpaceNodeDFS(current_node, path_id, current_node.depth + 1,
-                                             set(copy.deepcopy(current_node.int_position_pawns_caught)))
+                                             set(copy.deepcopy(current_node.int_position_pawns_caught)),
+                                             current_node.path_id)
                 if pawn_caught:
                     for pawn in pawns_caught:
                         # This is an O(1) operation, do not expect it to run much more than n^NUMBER_OF_PAWNS
+                        caught_pawns += 1
                         if pawn in new_node.int_position_pawns_caught:
                             new_node.int_position_pawns_caught.remove(pawn)
                     if len(new_node.int_position_pawns_caught) == 0:
                         goal_not_reached = False
                         goal_node = new_node
+                        print "Goal has been reached"
                         break
                 if new_node in state_history:
                     continue
                 else:
                     state_history.add(new_node)
-
+                nodes_generated += 1
                 q.append(new_node)
-        print "Search finished"
+        print "After generating a total %d nodes when using just %d states, the search finished with %d pawns caught" % \
+              (nodes_total_generated, nodes_generated, caught_pawns)
         k = goal_node
         while k.parent is not None:
             print self.int_to_coord_mappings[k.path_id]
@@ -368,9 +384,12 @@ class GameBoard(wx.Frame):
         goal_node = None
 
         # All the states that ever passed.
-        state_history = set()
         nodes_generated = 0
         nodes_total_generated = 0
+        came_from = dict()
+        cost_so_far = dict()
+        cost_so_far[root_node] = 0
+        caught_pawns = 0
         while len(heap) != 0 and goal_not_reached:
             current_node = heappop(heap)
             pawn_caught = False
@@ -390,24 +409,10 @@ class GameBoard(wx.Frame):
 
             # Get a set of all possible int mappings of coordinates
             cur_valid_moves = self.knight.get_valid_moves(current_position, True)
-
-            # # DFS will require some smart choices if possible
-            # captureable_pawns = cur_valid_moves.intersection(pawn_int_possible_locations_mapping)
-            # if len(captureable_pawns) > 0:
-            #     temp_valid_moves = []
-            #     for path in cur_valid_moves:
-            #         if path not in captureable_pawns:
-            #             temp_valid_moves.append(path)
-            #     temp_valid_moves.extend(captureable_pawns)
-            #     cur_valid_moves = temp_valid_moves
-
             qpawns, qmoves = self.quadrantize(current_node.path_id, current_node.int_position_pawns_caught,
                                               cur_valid_moves)
             for path_id in cur_valid_moves:
                 nodes_total_generated += 1
-                new_node = StateSpaceNodeAStar(current_node, path_id, current_node.depth + 1,
-                                               copy.deepcopy(current_node.int_position_pawns_caught))
-                # Update the new node's priority
                 quadrant_val = self.calc_quadrant(path_id, qpawns, qmoves, current_node.int_position_pawns_caught)
                 distance_val = 0
                 if quadrant_val == sys.maxint:
@@ -417,25 +422,28 @@ class GameBoard(wx.Frame):
                 priority = current_node.depth + 1 + quadrant_val + distance_val
                 if priority > sys.maxint:
                     continue
-                new_node.priority = priority
-                if pawn_caught:
-                    for pawn in pawns_caught:
-                        # This is an O(1) operation, do not expect it to run much more than n^NUMBER_OF_PAWNS
-                        if pawn in new_node.int_position_pawns_caught:
-                            new_node.int_position_pawns_caught.remove(pawn)
-                    if len(new_node.int_position_pawns_caught) == 0:
-                        goal_not_reached = False
-                        goal_node = new_node
-                        print "A Star goal reached"
-                        break
-                if new_node in state_history:
-                    continue
-                else:
-                    state_history.add(new_node)
+                path_cost = distance_val
+                new_cost = cost_so_far[current_node] + path_cost
+                new_node = StateSpaceNodeAStar(current_node, path_id, current_node.depth + 1,
+                                               copy.deepcopy(current_node.int_position_pawns_caught))
+                if new_node not in cost_so_far or new_cost < cost_so_far[new_node]:
+                    if pawn_caught:
+                        for pawn in pawns_caught:
+                            caught_pawns += 1
+                            # This is an O(1) operation, do not expect it to run much more than n^NUMBER_OF_PAWNS
+                            if pawn in new_node.int_position_pawns_caught:
+                                new_node.int_position_pawns_caught.remove(pawn)
+                        if len(new_node.int_position_pawns_caught) == 0:
+                            goal_not_reached = False
+                            goal_node = new_node
+                            print "A Star goal reached"
+                            break
+                    cost_so_far[new_node] = new_cost
+                    new_node.priority = priority
+                    heappush(heap, new_node)
                     nodes_generated += 1
-                heappush(heap, new_node)
-        print "After generating a total %d nodes when using just %d states, the search finished" % \
-              (nodes_total_generated, nodes_generated)
+        print "After generating a total %d nodes when using just %d states, the search finished with %d pawns caught" % \
+              (nodes_total_generated, nodes_generated, caught_pawns)
         k = goal_node
         while k.parent is not None:
             print self.int_to_coord_mappings[k.path_id]
@@ -528,23 +536,31 @@ class GameBoard(wx.Frame):
             self.number_of_pawns = NUMBER_OF_PAWNS
         print "Generating board for dimension " + str(self.dim) + " with " + str(self.number_of_pawns) + " pawns."
 
-        # Generate location of knight
-        x = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
-        y = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
-        self.knight = Knight(x, y, self.dim)
+        self.knight = Knight(10, 10, self.dim)
+        self.pawns[(13, 7)] = pawn_model.Pawn(13, 7, self.dim)
+        self.pawns[(4, 17)] = pawn_model.Pawn(4, 17, self.dim)
+        self.pawns[(5, 11)] = pawn_model.Pawn(5, 11, self.dim)
+        self.pawns[(17, 4)] = pawn_model.Pawn(17, 4, self.dim)
         self.validKnightMoves = self.knight.get_valid_moves()
-        d = random.randint(0, 3)
-        # Generate random pawn location
-        for i in range(self.number_of_pawns):
-            while True:
-                x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
-                y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
-                pawn = pawn_model.Pawn(x, y, self.dim, d)
-                if pawn not in self.pawns and self.knight.get_position() not in self.pawns and pawn not in self.validKnightMoves:
-                    self.pawns[pawn.get_position()] = pawn
-                    break
-                else:
-                    print x, y
+
+        # # Generate location of knight
+        # x = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
+        # y = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
+        # self.knight = Knight(x, y, self.dim)
+        # self.validKnightMoves = self.knight.get_valid_moves()
+        # d = random.randint(0, 3)
+        # # Generate random pawn location
+        # for i in range(self.number_of_pawns):
+        #     while True:
+        #         x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+        #         y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+        #         pawn = pawn_model.Pawn(x, y, self.dim, d)
+        #         if pawn not in self.pawns and pawn.get_position() != self.knight.get_position() \
+        #                 and pawn not in self.validKnightMoves:
+        #             self.pawns[pawn.get_position()] = pawn
+        #             break
+        #         else:
+        #             print x, y
 
     def _build_board_canvas(self, dimension):
         board_canvas = FloatCanvas.FloatCanvas(self, size=(800, 650),
