@@ -15,7 +15,7 @@ class StateSpaceNode(object):
         #     if p not in other.int_position_pawns_caught:
         #         has_value = False
         return self.path_id == other.path_id and \
-               len(self.int_position_pawns_caught - other.int_position_pawns_caught |
+               len(self.int_position_pawns_caught - other.int_position_pawns_caught) == 0 and len(
                    other.int_position_pawns_caught - self.int_position_pawns_caught) == 0 \
                and self.depth == other.depth
 
@@ -34,15 +34,17 @@ class StateSpaceNodeDFS(StateSpaceNode):
         # for p in self.int_position_pawns_caught:
         #     if p not in other.int_position_pawns_caught:
         #         has_value = False
-        return self.path_id == other.path_id
+        return self.path_id == other.path_id and \
+               len(self.int_position_pawns_caught - other.int_position_pawns_caught) == 0 and len(
+                   other.int_position_pawns_caught - self.int_position_pawns_caught) == 0 \
+               and self.last_move == other.last_move
 
 
 class StateSpaceNodeAStar(StateSpaceNode):
-    def __init__(self, parent, path, depth, pawns={}, cost=0, priority=0):
+    def __init__(self, parent, path, depth, pawns={}, priority=0):
         super(StateSpaceNodeAStar, self).__init__(parent, path, depth, pawns)
-        self.hash = hash((self.path_id, tuple(self.int_position_pawns_caught)))
         self.priority = priority
-        self.cost = cost
+        self.hash = hash((self.priority, tuple(self.int_position_pawns_caught)))
 
     def __cmp__(self, other):
         return cmp(self.priority, other.priority)
@@ -56,6 +58,7 @@ class StateSpaceNodeAStar(StateSpaceNode):
         #     if p not in other.int_position_pawns_caught:
         #         has_value = False
         return self.path_id == other.path_id and self.depth == other.depth and \
-               len(self.int_position_pawns_caught - other.int_position_pawns_caught |
+               len(self.int_position_pawns_caught - other.int_position_pawns_caught) == 0 and len(
                    other.int_position_pawns_caught - self.int_position_pawns_caught) == 0 \
-               and self.depth == other.depth
+               and self.depth == other.depth and self.priority == other.priority
+
