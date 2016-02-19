@@ -50,9 +50,9 @@ class ComputerPlayer(threading.Thread):
             node_search = node_search.parent
 
         for i in range(len(move_list) - 1):
-            time.sleep(1)
+            time.sleep(0.5)
             evt = MoveEvent(myEVT_MAKE_MOVE, -1, move_list.pop())
             wx.PostEvent(self._parent, evt)
-            time.sleep(1)
+            time.sleep(0.5)
             evt2 = MoveEvent(myEVT_PAWN_MOVE, -1, None)
             wx.PostEvent(self._parent, evt2)
