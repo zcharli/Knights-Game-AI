@@ -22,8 +22,8 @@ ASTAR = wx.NewId()
 KNIGHTSBOARD = wx.NewId()
 
 SLEEP_TIME_SECONDS = 0
-DEFAULT_SIZE = 32
-NUMBER_OF_PAWNS = 30
+DEFAULT_SIZE = 22
+NUMBER_OF_PAWNS = 10
 CELLWIDTH = 30
 CELLSPACING = 32
 SPAWNPADDING = 3
@@ -368,12 +368,6 @@ class GameBoard(wx.Frame):
             self.pawn_int_possible_move_mapping[starting_int_location_representation] = \
                 [ending_int_location_representation, starting_int_location_representation]
             pawns_on_the_board.append(starting_int_location_representation)
-
-        # Depth control variables
-        current_depth = 0
-        elements_to_depth_increase = 1
-        next_elements_to_depth_increase = 0
-
         heap = []
 
         root_node = StateSpaceNodeAStar(None,
@@ -410,7 +404,7 @@ class GameBoard(wx.Frame):
                 new_pawn_state = new_pawn_state - set(pawns_caught)
 
             cur_valid_moves = self.knight.get_valid_moves(current_position, True)
-            # qpawns, qmoves = self.quadrantize((int(self.dim/2), int(self.dim/2)),
+            #qpawns, qmoves = self.quadrantize((int(self.dim/2), int(self.dim/2)),
             qpawns, qmoves = self.quadrantize(self.int_to_coord_mappings[current_node.path_id],
                                               new_pawn_state,
                                               cur_valid_moves)
@@ -481,7 +475,11 @@ class GameBoard(wx.Frame):
                 euclidean_distance = d * sqrt((x - nx) ** 2 + (y - ny) ** 2)
                 if euclidean_distance < least_distance:
                     least_distance = euclidean_distance
-            return len(pawns_alive) * self.scale + least_distance
+            num_pawns_in_other_quadrant = 0
+            for i in range(1,5):
+                if i != quadrant:
+                    num_pawns_in_other_quadrant += len(qpawns[i])
+            return len(pawns_alive) * self.scale + num_pawns_in_other_quadrant
 
     def h1(self, path, qpawns, qmoves, pawns_alive):
         quadrant = qmoves[path]
@@ -507,7 +505,7 @@ class GameBoard(wx.Frame):
                 euclidean_distance = d * sqrt((x - nx) ** 2 + (y - ny) ** 2)
                 if euclidean_distance < least_distance:
                     least_distance = euclidean_distance
-            return len(pawns_alive) * self.scale + least_distance + num_pawns_in_quadrant
+            return len(pawns_alive) * self.scale + least_distance / 1.75 + num_pawns_in_quadrant
 
     def quadrantize(self, (px, py), pawn_on_board, cur_valid_moves):
         quadrant_pawns = {1: [], 2: [], 3: [], 4: []}
@@ -568,37 +566,50 @@ class GameBoard(wx.Frame):
         # self.pawns[(4, 17)] = pawn_model.Pawn(4, 17, self.dim)
         # self.pawns[(5, 11)] = pawn_model.Pawn(5, 11, self.dim)
         # self.pawns[(17, 4)] = pawn_model.Pawn(17, 4, self.dim)
-        self.knight = Knight(15, 14, self.dim)
-        self.pawns[(24, 28)] = pawn_model.Pawn(24, 28, self.dim)
-        self.pawns[(11, 21)] = pawn_model.Pawn(11, 21, self.dim)
-        self.pawns[(6, 18)] = pawn_model.Pawn(6, 18, self.dim)
-        self.pawns[(14, 29)] = pawn_model.Pawn(14, 29, self.dim)
-        self.pawns[(19, 10)] = pawn_model.Pawn(19, 10, self.dim)
-        self.pawns[(10, 17)] = pawn_model.Pawn(10, 17, self.dim)
-        self.pawns[(27, 5)] = pawn_model.Pawn(27, 5, self.dim)
-        self.pawns[(28, 28)] = pawn_model.Pawn(28, 28, self.dim)
-        self.pawns[(24, 6)] = pawn_model.Pawn(24, 6, self.dim)
-        self.pawns[(26, 4)] = pawn_model.Pawn(26, 4, self.dim)
-        self.pawns[(3, 3)] = pawn_model.Pawn(3, 3, self.dim)
-        self.pawns[(12, 24)] = pawn_model.Pawn(12, 24, self.dim)
-        self.pawns[(3, 9)] = pawn_model.Pawn(3, 9, self.dim)
-        self.pawns[(21, 12)] = pawn_model.Pawn(21, 12, self.dim)
-        self.pawns[(18, 18)] = pawn_model.Pawn(18, 18, self.dim)
-        self.pawns[(12, 18)] = pawn_model.Pawn(12, 18, self.dim)
-        self.pawns[(27, 6)] = pawn_model.Pawn(27, 6, self.dim)
-        self.pawns[(18, 23)] = pawn_model.Pawn(18, 23, self.dim)
-        self.pawns[(10, 27)] = pawn_model.Pawn(10, 27, self.dim)
-        self.pawns[(28, 5)] = pawn_model.Pawn(28, 5, self.dim)
-        self.pawns[(23, 28)] = pawn_model.Pawn(23, 28, self.dim)
-        self.pawns[(22, 5)] = pawn_model.Pawn(22, 5, self.dim)
-        self.pawns[(25, 5)] = pawn_model.Pawn(25, 5, self.dim)
-        self.pawns[(12, 17)] = pawn_model.Pawn(12, 17, self.dim)
-        self.pawns[(9, 20)] = pawn_model.Pawn(9, 20, self.dim)
-        self.pawns[(3, 28)] = pawn_model.Pawn(3, 28, self.dim)
+        # self.knight = Knight(15, 14, self.dim)
+        # self.pawns[(24, 28)] = pawn_model.Pawn(24, 28, self.dim)
+        # self.pawns[(11, 21)] = pawn_model.Pawn(11, 21, self.dim)
+        # self.pawns[(6, 18)] = pawn_model.Pawn(6, 18, self.dim)
+        # self.pawns[(14, 29)] = pawn_model.Pawn(14, 29, self.dim)
+        # self.pawns[(19, 10)] = pawn_model.Pawn(19, 10, self.dim)
+        # self.pawns[(10, 17)] = pawn_model.Pawn(10, 17, self.dim)
+        # self.pawns[(27, 5)] = pawn_model.Pawn(27, 5, self.dim)
+        # self.pawns[(28, 28)] = pawn_model.Pawn(28, 28, self.dim)
+        # self.pawns[(24, 6)] = pawn_model.Pawn(24, 6, self.dim)
+        # self.pawns[(26, 4)] = pawn_model.Pawn(26, 4, self.dim)
+        # self.pawns[(3, 3)] = pawn_model.Pawn(3, 3, self.dim)
+        # self.pawns[(12, 24)] = pawn_model.Pawn(12, 24, self.dim)
+        # self.pawns[(3, 9)] = pawn_model.Pawn(3, 9, self.dim)
+        # self.pawns[(21, 12)] = pawn_model.Pawn(21, 12, self.dim)
+        # self.pawns[(18, 18)] = pawn_model.Pawn(18, 18, self.dim)
+        # self.pawns[(12, 18)] = pawn_model.Pawn(12, 18, self.dim)
+        # self.pawns[(27, 6)] = pawn_model.Pawn(27, 6, self.dim)
+        # self.pawns[(18, 23)] = pawn_model.Pawn(18, 23, self.dim)
+        # self.pawns[(10, 27)] = pawn_model.Pawn(10, 27, self.dim)
+        # self.pawns[(28, 5)] = pawn_model.Pawn(28, 5, self.dim)
+        # self.pawns[(23, 28)] = pawn_model.Pawn(23, 28, self.dim)
+        # self.pawns[(22, 5)] = pawn_model.Pawn(22, 5, self.dim)
+        # self.pawns[(25, 5)] = pawn_model.Pawn(25, 5, self.dim)
+        # self.pawns[(12, 17)] = pawn_model.Pawn(12, 17, self.dim)
+        # self.pawns[(9, 20)] = pawn_model.Pawn(9, 20, self.dim)
+        # self.pawns[(3, 28)] = pawn_model.Pawn(3, 28, self.dim)
+        # self.pawns[(3, 17)] = pawn_model.Pawn(3, 17, self.dim)
+        # self.pawns[(20, 11)] = pawn_model.Pawn(20, 11, self.dim)
+        # self.pawns[(23, 25)] = pawn_model.Pawn(23, 25, self.dim)
+        # self.pawns[(7, 24)] = pawn_model.Pawn(7, 24, self.dim)
+        # self.validKnightMoves = self.knight.get_valid_moves()
+
+        self.knight = Knight(9, 10, self.dim)
+        self.pawns[(7, 8)] = pawn_model.Pawn(7, 8, self.dim)
+        self.pawns[(9, 17)] = pawn_model.Pawn(9, 17, self.dim)
+        self.pawns[(7, 17)] = pawn_model.Pawn(7, 17, self.dim)
+        self.pawns[(13, 10)] = pawn_model.Pawn(13, 10, self.dim)
         self.pawns[(3, 17)] = pawn_model.Pawn(3, 17, self.dim)
-        self.pawns[(20, 11)] = pawn_model.Pawn(20, 11, self.dim)
-        self.pawns[(23, 25)] = pawn_model.Pawn(23, 25, self.dim)
-        self.pawns[(7, 24)] = pawn_model.Pawn(7, 24, self.dim)
+        self.pawns[(9, 8)] = pawn_model.Pawn(9, 8, self.dim)
+        self.pawns[(13, 14)] = pawn_model.Pawn(13, 14, self.dim)
+        self.pawns[(16, 19)] = pawn_model.Pawn(16, 19, self.dim)
+        self.pawns[(4, 16)] = pawn_model.Pawn(4, 16, self.dim)
+        self.pawns[(9, 3)] = pawn_model.Pawn(9, 3, self.dim)
         self.validKnightMoves = self.knight.get_valid_moves()
 
         # Generate location of knight

@@ -53,6 +53,7 @@ class StateSpaceNodeAStar(StateSpaceNode):
     def __index__(self):
         return int(self.priority)
 
+
     def __hash__(self):
         return self.hash
 
