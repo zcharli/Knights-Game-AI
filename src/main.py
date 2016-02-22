@@ -1,19 +1,20 @@
 from __future__ import division
+
+import copy
+import sys
+from collections import deque
+from heapq import heappush, heappop
+from math import sqrt
+
 import wx
+import wx.lib.newevent
+from wx.lib.floatcanvas import FloatCanvas
 
 import pawn as pawn_model
-from knight import Knight
-import sys
-from statespace import StateSpaceNode, StateSpaceNodeDFS, StateSpaceNodeAStar
-import copy
-from collections import deque
-import random
 import worker
-from wx.lib.floatcanvas import FloatCanvas
 from graph import Point
-from math import sqrt
-from heapq import heappush, heappop, nlargest, heapify
-import wx.lib.newevent
+from knight import Knight
+from statespace import StateSpaceNode, StateSpaceNodeDFS, StateSpaceNodeAStar
 
 PLAYGAME = wx.NewId()
 DFS = wx.NewId()
