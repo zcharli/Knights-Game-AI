@@ -6,6 +6,7 @@ LEFT = 3
 UP = 1
 DOWN = 2
 
+
 class Pawn(Vertex):
     def __init__(self, x, y, dim, d=None):
         super(Pawn, self).__init__(x, y)

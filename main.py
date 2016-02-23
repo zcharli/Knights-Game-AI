@@ -10,6 +10,7 @@ import wx
 import wx.lib.newevent
 from wx.lib.floatcanvas import FloatCanvas
 
+import random
 import pawn as pawn_model
 import worker
 from graph import Point
@@ -190,12 +191,15 @@ class GameBoard(wx.Frame):
                     state_history.add(new_node)
                 q.append(new_node)
                 nodes_generated += 1
-        print "After generating a total %d nodes when using just %d states, the search finished with %d pawns caught" % \
-              (nodes_total_generated, nodes_generated, caught_pawns)
+
         k = goal_node
+        moves = 0;
         while k.parent is not None:
             print self.int_to_coord_mappings[k.path_id]
             k = k.parent
+            moves += 1
+        print "After generating a total %d nodes when using just %d states, the search finished with %d moves" % \
+              (nodes_total_generated, nodes_generated, moves)
         player = worker.ComputerPlayer(self, goal_node, self.boardCanvasSquares, self.int_to_coord_mappings)
         player.start()
 
@@ -385,7 +389,7 @@ class GameBoard(wx.Frame):
         closed_set = dict()
         closed_set[root_node] = 0
         caught_pawns = 0
-        self.scale = self.dim * 0.3
+        self.scale = self.dim * 0.5
 
         while len(heap) != 0 and goal_not_reached:
             current_node = heappop(heap)
@@ -411,46 +415,94 @@ class GameBoard(wx.Frame):
                                               cur_valid_moves)
             # Get a set of all possible int mappings of coordinates
             if len(new_pawn_state) == 0:
-                print "A Star goal has been reached"
+                print "A Star goal has been reached with cost %d" % (current_node.depth + 1)
                 last_move = cur_valid_moves - set(self.pawn_int_possible_locations_mapping.keys())
                 new_node = StateSpaceNodeAStar(current_node, last_move.pop(), current_node.depth + 1,
                                                new_pawn_state,
-                                               0)
+                                               0, current_node.cost + 1)
                 goal_node = new_node
                 break
 
+            new_cost = current_node.depth + 1
             for path_id in cur_valid_moves:
                 nodes_total_generated += 1
-                new_cost = (closed_set[current_node] + 1)
-                #h = self.h1(path_id, qpawns, qmoves, new_pawn_state)
-                h = self.h2(path_id, qpawns, qmoves, new_pawn_state)
+
+                h = self.h1(path_id, qpawns, qmoves, new_pawn_state)
+                #h = self.h2(path_id, qpawns, qmoves, new_pawn_state)
+                #h = self.h3(path_id, qpawns, qmoves, new_pawn_state)
                 if h == sys.maxint:
                     continue
-                priority = current_node.depth + 1 + h
+                priority = new_cost + h
                 if priority > sys.maxint:
                     continue
-                new_node = StateSpaceNodeAStar(current_node, path_id, current_node.depth + 1,
+                new_node = StateSpaceNodeAStar(current_node, path_id, new_cost,
                                                new_pawn_state,
                                                priority, new_cost)
 
-                if path_id not in closed_set or new_cost < closed_set[current_node]:
-                    if path_id in closed_set:
-                        if new_cost < closed_set[current_node]:
+                if new_node not in closed_set or new_cost < closed_set[new_node]:
+                    if new_node in closed_set:
+                        if new_cost < closed_set[new_node]:
+
                             print "cheaper found!"
+                    #closed_set[new_node] = priority
                     closed_set[new_node] = new_cost
                     heappush(heap, new_node)
                     nodes_generated += 1
-        print "After generating a total %d nodes when using just %d states, the search finished with %d pawns caught" % \
-              (nodes_total_generated, nodes_generated, caught_pawns)
+        print "After generating a total %d nodes when using just %d states, the search finished with %d moves" % \
+              (nodes_total_generated, nodes_generated, goal_node.cost)
         k = goal_node
         moves = 0
         while k.parent is not None:
             print self.int_to_coord_mappings[k.path_id]
             k = k.parent
             moves += 1
-        print "used %d moves" % moves
+        print "used %d moves while cost is %d" % (moves, k.cost)
+
         player = worker.ComputerPlayer(self, goal_node, self.boardCanvasSquares, self.int_to_coord_mappings)
         player.start()
+
+    def h3(self, path,  qpawns, qmoves, pawns_alive):
+        quadrant = qmoves[path]
+        num_pawns_in_quadrant = len(qpawns[quadrant])
+        if num_pawns_in_quadrant == 0:
+            return sys.maxint
+        alive_location_mapping = set()
+        for i in pawns_alive:
+            mapping = self.pawn_int_possible_move_mapping[i]
+            alive_location_mapping.add(mapping[0])
+            alive_location_mapping.add(mapping[1])
+        if path in alive_location_mapping:
+            return 0
+        else:
+            conquer_distance = sys.maxint
+            pawns_in_quadrant = qpawns[quadrant]
+            if 0 < num_pawns_in_quadrant <= 1:
+                conquer_distance = self.get_nearest_distance(pawns_in_quadrant, path)
+            else:
+                conquer_distance = 0
+                d = 1
+                (nx, ny) = self.int_to_coord_mappings[path]
+                seen_pawns = set()
+
+                our_pawn = None
+                while len(seen_pawns) != len(pawns_in_quadrant):
+                    least = sys.maxint
+                    for p in pawns_in_quadrant:
+                        if p in seen_pawns:
+                            continue
+                        if our_pawn is not None:
+                            (x, y) = self.int_to_coord_mappings[our_pawn]
+                        else:
+                            (x, y) = self.int_to_coord_mappings[p]
+                        euclidean_distance = d * sqrt((x - nx) ** 2 + (y - ny) ** 2)
+                        if euclidean_distance <= least:
+                            our_pawn = p
+                            seen_pawns.add(p)
+                            #print "%d %d" % (len(seen_pawns), len(pawns_in_quadrant))
+                            conquer_distance += euclidean_distance
+                            least = euclidean_distance
+
+            return len(pawns_alive)*self.scale + conquer_distance + self.get_nearest_distance(pawns_in_quadrant, path)
 
     def h2(self, path, qpawns, qmoves, pawns_alive):
         quadrant = qmoves[path]
@@ -495,18 +547,19 @@ class GameBoard(wx.Frame):
         if path in alive_location_mapping:
             return 0
         else:
-            least_distance = sys.maxint
-            (nx, ny) = self.int_to_coord_mappings[path]
-            d = 1
-            pawn_positions = qpawns[quadrant]
-            for i in pawn_positions:
-                if path in self.pawn_int_possible_move_mapping[i]:
-                    d = 0.5
+            least_distance = self.get_nearest_distance(qpawns[quadrant], path)
+            return len(pawns_alive) * self.scale + least_distance + num_pawns_in_quadrant
+
+    def get_nearest_distance(self, pawns, path):
+        least_distance = sys.maxint
+        (nx, ny) = self.int_to_coord_mappings[path]
+        d = 1
+        for i in pawns:
                 (x, y) = self.int_to_coord_mappings[i]
                 euclidean_distance = d * sqrt((x - nx) ** 2 + (y - ny) ** 2)
                 if euclidean_distance < least_distance:
                     least_distance = euclidean_distance
-            return len(pawns_alive) * self.scale + least_distance / 1.75 + num_pawns_in_quadrant
+        return least_distance
 
     def quadrantize(self, (px, py), pawn_on_board, cur_valid_moves):
         quadrant_pawns = {1: [], 2: [], 3: [], 4: []}
@@ -550,6 +603,7 @@ class GameBoard(wx.Frame):
         self._generate_starting_locations()
         self._build_board()
         self.generate_new_valid_moves()
+        self.boardCanvas.Draw(True)
 
     def _generate_starting_locations(self):
         if self.txtDimensions:
@@ -562,11 +616,6 @@ class GameBoard(wx.Frame):
             self.number_of_pawns = NUMBER_OF_PAWNS
         print "Generating board for dimension " + str(self.dim) + " with " + str(self.number_of_pawns) + " pawns."
 
-        # self.knight = Knight(10, 10, self.dim)
-        # self.pawns[(13, 7)] = pawn_model.Pawn(13, 7, self.dim)
-        # self.pawns[(4, 17)] = pawn_model.Pawn(4, 17, self.dim)
-        # self.pawns[(5, 11)] = pawn_model.Pawn(5, 11, self.dim)
-        # self.pawns[(17, 4)] = pawn_model.Pawn(17, 4, self.dim)
         # self.knight = Knight(15, 14, self.dim)
         # self.pawns[(24, 28)] = pawn_model.Pawn(24, 28, self.dim)
         # self.pawns[(11, 21)] = pawn_model.Pawn(11, 21, self.dim)
@@ -599,40 +648,40 @@ class GameBoard(wx.Frame):
         # self.pawns[(23, 25)] = pawn_model.Pawn(23, 25, self.dim)
         # self.pawns[(7, 24)] = pawn_model.Pawn(7, 24, self.dim)
         # self.validKnightMoves = self.knight.get_valid_moves()
-
-        self.knight = Knight(9, 10, self.dim)
-        self.pawns[(7, 8)] = pawn_model.Pawn(7, 8, self.dim)
-        self.pawns[(9, 17)] = pawn_model.Pawn(9, 17, self.dim)
-        self.pawns[(7, 17)] = pawn_model.Pawn(7, 17, self.dim)
-        self.pawns[(13, 10)] = pawn_model.Pawn(13, 10, self.dim)
-        self.pawns[(3, 17)] = pawn_model.Pawn(3, 17, self.dim)
-        self.pawns[(9, 8)] = pawn_model.Pawn(9, 8, self.dim)
-        self.pawns[(13, 14)] = pawn_model.Pawn(13, 14, self.dim)
-        self.pawns[(16, 19)] = pawn_model.Pawn(16, 19, self.dim)
-        self.pawns[(4, 16)] = pawn_model.Pawn(4, 16, self.dim)
-        self.pawns[(9, 3)] = pawn_model.Pawn(9, 3, self.dim)
-        self.validKnightMoves = self.knight.get_valid_moves()
-
-        # Generate location of knight
-        # x = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
-        # y = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
-        # self.knight = Knight(x, y, self.dim)
+        #
+        # self.knight = Knight(9, 10, self.dim)
+        # self.pawns[(7, 8)] = pawn_model.Pawn(7, 8, self.dim)
+        # #self.pawns[(9, 17)] = pawn_model.Pawn(9, 17, self.dim)
+        # self.pawns[(7, 17)] = pawn_model.Pawn(7, 17, self.dim)
+        # #self.pawns[(13, 10)] = pawn_model.Pawn(13, 10, self.dim)
+        # self.pawns[(3, 17)] = pawn_model.Pawn(3, 17, self.dim)
+        # # self.pawns[(9, 8)] = pawn_model.Pawn(9, 8, self.dim)
+        # self.pawns[(13, 14)] = pawn_model.Pawn(13, 14, self.dim)
+        # #self.pawns[(16, 19)] = pawn_model.Pawn(16, 19, self.dim)
+        # self.pawns[(4, 16)] = pawn_model.Pawn(4, 16, self.dim)
+        # # self.pawns[(9, 3)] = pawn_model.Pawn(9, 3, self.dim)
         # self.validKnightMoves = self.knight.get_valid_moves()
-        # d = random.randint(0, 3)
-        # # Generate random pawn location
-        # #print "self.knight = Knight(%d,%d, self.dim)" % (x,y)
-        # for i in range(self.number_of_pawns):
-        #     while True:
-        #         x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
-        #         y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
-        #         pawn = pawn_model.Pawn(x, y, self.dim, d)
-        #         if pawn not in self.pawns and pawn.get_position() != self.knight.get_position() \
-        #                 and pawn not in self.validKnightMoves:
-        #             self.pawns[pawn.get_position()] = pawn
-        #             #print "self.pawns[(%d,%d)] = pawn_model.Pawn(%d,%d,self.dim)" % (x,y,x,y)
-        #             break
-        #         else:
-        #             print x, y
+
+        #Generate location of knight
+        x = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
+        y = random.randint(int(self.dim / 4), self.dim - (int(self.dim / 4)))
+        self.knight = Knight(x, y, self.dim)
+        self.validKnightMoves = self.knight.get_valid_moves()
+        d = random.randint(0, 3)
+        # Generate random pawn location
+        #print "self.knight = Knight(%d,%d, self.dim)" % (x,y)
+        for i in range(self.number_of_pawns):
+            while True:
+                x = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+                y = random.randint(SPAWNPADDING, self.dim - SPAWNPADDING)
+                pawn = pawn_model.Pawn(x, y, self.dim, d)
+                if pawn not in self.pawns and pawn.get_position() != self.knight.get_position() \
+                        and pawn not in self.validKnightMoves:
+                    self.pawns[pawn.get_position()] = pawn
+                    #print "self.pawns[(%d,%d)] = pawn_model.Pawn(%d,%d,self.dim)" % (x,y,x,y)
+                    break
+                else:
+                    print x, y
 
     def _build_board_canvas(self, dimension):
         board_canvas = FloatCanvas.FloatCanvas(self, size=(800, 650),
@@ -722,12 +771,12 @@ class GameBoard(wx.Frame):
         for coords in self.validKnightMoves:
             if coords in self.boardCanvasSquares:
                 self.color_square(self.boardCanvasSquares[coords], GREEN)
-        self.boardCanvas.Draw(True)
+        #self.boardCanvas.Draw()
 
     def clear_valid_moves(self):
         for coords in self.validKnightMoves:
             self.color_square(self.boardCanvasSquares[coords], WHITE)
-        self.boardCanvas.Draw()
+        #self.boardCanvas.Draw()
         self.validKnightMoves = {}
 
     def make_move(self, square):
@@ -743,7 +792,7 @@ class GameBoard(wx.Frame):
             self.clear_valid_moves()
             self.generate_new_valid_moves()
             self.move_pawns()
-            self.boardCanvas.Draw(Force=True)
+            self.boardCanvas.Draw()
 
     def move_pawns(self):
         pawns_to_delete = []

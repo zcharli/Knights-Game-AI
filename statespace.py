@@ -41,7 +41,7 @@ class StateSpaceNodeDFS(StateSpaceNode):
 
 
 class StateSpaceNodeAStar(StateSpaceNode):
-    def __init__(self, parent, path, depth, pawns={},priority=0, cost=0):
+    def __init__(self, parent, path, depth, pawns={}, priority=0, cost=0):
         super(StateSpaceNodeAStar, self).__init__(parent, path, depth, pawns)
         self.priority = priority
         self.hash = hash((self.path_id, tuple(self.int_position_pawns_caught)))
